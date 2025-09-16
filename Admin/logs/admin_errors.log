@@ -13,3 +13,5 @@
 [2025-09-15 18:56:48] Admin login successful | Context: {"admin_id":1,"username":"admin"}
 [2025-09-15 19:07:26] Admin login successful | Context: {"admin_id":1,"username":"admin"}
 [2025-09-15 19:10:30] Admin login successful | Context: {"admin_id":1,"username":"admin"}
+[2025-09-16 03:48:01] Admin login successful | Context: {"admin_id":1,"username":"admin"}
+[2025-09-16 03:51:36] Parent add failed - validation error | Context: {"admin_id":1}

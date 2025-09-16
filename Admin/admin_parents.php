@@ -113,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
                 exit();
             }
             
-            // Optionally flash generated creds for immediate copy
+            // Store generated credentials for display after redirect
             $_SESSION['new_parent_credentials'] = [ 
                 'parent_id' => $conn->insert_id, 
                 'username' => $username, 
@@ -734,6 +734,28 @@ ob_start();
         border: 1px solid #c3e6cb;
     }
     
+    .credentials-display {
+        background: #fff3cd;
+        border: 2px solid #ffc107;
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 12px;
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+        line-height: 1.4;
+    }
+    
+    .credentials-display strong {
+        color: #856404;
+        font-weight: bold;
+    }
+    
+    .credentials-display em {
+        color: #856404;
+        font-style: italic;
+        font-size: 12px;
+    }
+    
     .success-message::before {
         content: "✓";
         font-weight: bold;
@@ -935,6 +957,19 @@ ob_start();
             switch ($_GET['success']) {
                 case 'parent_added':
                     echo 'Parent added successfully!';
+                    // Display generated credentials if they exist
+                    if (isset($_SESSION['new_parent_credentials'])) {
+                        $creds = $_SESSION['new_parent_credentials'];
+                        echo '<div class="credentials-display">';
+                        echo '<strong>Generated Credentials:</strong><br>';
+                        echo '<strong>Username:</strong> <span id="generated-username">' . h($creds['username']) . '</span><br>';
+                        echo '<strong>Password:</strong> <span id="generated-password">' . h($creds['password']) . '</span><br>';
+                        echo '<button type="button" onclick="copyCredentials()" style="margin-top: 8px; padding: 6px 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">📋 Copy Credentials</button><br>';
+                        echo '<em>Please save these credentials securely. They will not be shown again.</em>';
+                        echo '</div>';
+                        // Clear the credentials from session after displaying
+                        unset($_SESSION['new_parent_credentials']);
+                    }
                     break;
                 case 'parent_updated':
                     echo 'Parent updated successfully!';
@@ -1178,6 +1213,77 @@ ob_start();
                 message.remove();
             }, 300);
         }
+    }
+    
+    function copyCredentials() {
+        const username = document.getElementById('generated-username');
+        const password = document.getElementById('generated-password');
+        
+        if (username && password) {
+            const credentials = `Username: ${username.textContent}\nPassword: ${password.textContent}`;
+            
+            // Try to use the modern clipboard API
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(credentials).then(() => {
+                    showCopyFeedback('Credentials copied to clipboard!');
+                }).catch(() => {
+                    fallbackCopyTextToClipboard(credentials);
+                });
+            } else {
+                fallbackCopyTextToClipboard(credentials);
+            }
+        }
+    }
+    
+    function fallbackCopyTextToClipboard(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                showCopyFeedback('Credentials copied to clipboard!');
+            } else {
+                showCopyFeedback('Failed to copy. Please copy manually.');
+            }
+        } catch (err) {
+            showCopyFeedback('Failed to copy. Please copy manually.');
+        }
+        
+        document.body.removeChild(textArea);
+    }
+    
+    function showCopyFeedback(message) {
+        // Create a temporary feedback element
+        const feedback = document.createElement('div');
+        feedback.textContent = message;
+        feedback.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            z-index: 10000;
+            font-size: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        `;
+        
+        document.body.appendChild(feedback);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            if (feedback.parentNode) {
+                feedback.parentNode.removeChild(feedback);
+            }
+        }, 3000);
     }
     
     function autoDismissMessages() {
