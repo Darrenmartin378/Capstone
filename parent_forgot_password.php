@@ -155,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="email" name="email" placeholder="Enter your email" required>
                 <input type="submit" value="Send Reset Link">
             </form>
-            <a href="parent_login.php">Back to Login</a>
+            <a href="login.php">Back to Login</a>
         </div>
     </div>
 </body>

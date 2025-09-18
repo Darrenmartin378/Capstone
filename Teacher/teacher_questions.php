@@ -419,6 +419,13 @@ body {
 .btn-danger:hover {
     background: #dc2626;
 }
+.btn-info {
+    background: #06b6d4;
+    color: #fff;
+}
+.btn-info:hover {
+    background: #0891b2;
+}
 input[type="text"], select, textarea {
     border: 1px solid #cbd5e1;
     border-radius: 6px;
@@ -618,6 +625,11 @@ tr:last-child td {
                                                         </div>
                                                     </div>
                                                     <div style="display: flex; gap: 5px;">
+                                                        <?php if ($q['question_type'] === 'matching'): ?>
+                                                            <button class="btn btn-info btn-sm" onclick="viewMatchingDetails(<?php echo (int)$q['id']; ?>)" style="padding: 4px 8px; font-size: 0.8em;">
+                                                                <i class="fas fa-eye"></i> View Details
+                                                            </button>
+                                                        <?php endif; ?>
                                                         <button class="btn btn-primary btn-sm" onclick="editQuestion(<?php echo (int)$q['id']; ?>, '<?php echo htmlspecialchars($q['question_type']); ?>')" style="padding: 4px 8px; font-size: 0.8em;">
                                                             <i class="fas fa-edit"></i> Edit
                                                         </button>
@@ -644,9 +656,340 @@ tr:last-child td {
         </div>
     </div>
 </div>
+
+<!-- Matching Question Details Modal -->
+<div id="matchingModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 800px; width: 90%;">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid #e5e7eb;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 1.5rem;">
+                <i class="fas fa-link" style="color: #f59e42; margin-right: 10px;"></i>
+                Matching Question Details
+            </h3>
+            <button onclick="closeMatchingModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #6b7280;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <div id="matchingContent">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.matching-pairs {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 20px;
+    align-items: center;
+    margin: 20px 0;
+}
+
+.matching-column {
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+.matching-column h4 {
+    margin: 0 0 15px 0;
+    color: #374151;
+    font-size: 1.1rem;
+    text-align: center;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.matching-item {
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+    color: #374151;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.matching-item:hover {
+    border-color: #6366f1;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+}
+
+.matching-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6366f1;
+    font-size: 1.5rem;
+}
+
+.matching-pair {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px;
+    background: #f0f9ff;
+    border: 1px solid #0ea5e9;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.matching-pair .left-item {
+    flex: 1;
+    background: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+}
+
+.matching-pair .right-item {
+    flex: 1;
+    background: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+}
+
+.matching-pair .arrow {
+    color: #0ea5e9;
+    font-size: 1.2rem;
+}
+
+.no-matching-data {
+    text-align: center;
+    color: #6b7280;
+    padding: 40px 20px;
+    font-style: italic;
+}
+
+.loading-matching {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6366f1;
+}
+
+.loading-matching i {
+    animation: spin 1s linear infinite;
+    margin-right: 10px;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+</style>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
 <script>
 let questionBlockCount = 0;
+
+// Function to view matching question details
+function viewMatchingDetails(questionId) {
+    const modal = document.getElementById('matchingModal');
+    const content = document.getElementById('matchingContent');
+    
+    // Show modal with loading state
+    modal.style.display = 'flex';
+    content.innerHTML = `
+        <div class="loading-matching">
+            <i class="fas fa-spinner"></i>
+            Loading matching question details...
+        </div>
+    `;
+    
+    // Fetch question data
+    fetch(`?action=get_question_data&id=${questionId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                content.innerHTML = `
+                    <div class="no-matching-data">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #f59e0b; margin-bottom: 15px;"></i>
+                        <p>Error loading question data: ${data.error}</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            displayMatchingQuestion(data);
+        })
+        .catch(error => {
+            console.error('Error fetching question data:', error);
+            content.innerHTML = `
+                <div class="no-matching-data">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #ef4444; margin-bottom: 15px;"></i>
+                    <p>Failed to load question data. Please try again.</p>
+                </div>
+            `;
+        });
+}
+
+// Function to display matching question details
+function displayMatchingQuestion(question) {
+    const content = document.getElementById('matchingContent');
+    
+    try {
+        // Parse options
+        let options = {};
+        if (question.options) {
+            if (typeof question.options === 'string') {
+                options = JSON.parse(question.options);
+            } else {
+                options = question.options;
+            }
+        }
+        
+        const lefts = options.lefts || [];
+        const rights = options.rights || [];
+        
+        if (lefts.length === 0 || rights.length === 0) {
+            content.innerHTML = `
+                <div class="no-matching-data">
+                    <i class="fas fa-link" style="font-size: 2rem; color: #6b7280; margin-bottom: 15px;"></i>
+                    <p>No matching pairs found for this question.</p>
+                    <p style="font-size: 0.9rem; margin-top: 10px;">The question may not have been properly configured.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Parse answer if available
+        let answerMap = {};
+        if (question.answer) {
+            try {
+                if (typeof question.answer === 'string') {
+                    answerMap = JSON.parse(question.answer);
+                } else {
+                    answerMap = question.answer;
+                }
+            } catch (e) {
+                console.warn('Could not parse answer:', e);
+            }
+        }
+        
+        // Create HTML for matching pairs
+        let html = `
+            <div style="margin-bottom: 20px;">
+                <h4 style="color: #374151; margin-bottom: 10px;">Question Text:</h4>
+                <p style="background: #f3f4f6; padding: 15px; border-radius: 8px; border-left: 4px solid #6366f1;">
+                    ${question.question_text || 'No question text provided'}
+                </p>
+            </div>
+        `;
+        
+        // Show two views: Column view and Paired view
+        html += `
+            <div style="margin-bottom: 30px;">
+                <h4 style="color: #374151; margin-bottom: 15px;">
+                    <i class="fas fa-columns" style="margin-right: 8px;"></i>
+                    Column View
+                </h4>
+                <div class="matching-pairs">
+                    <div class="matching-column">
+                        <h4>Column A</h4>
+                        ${lefts.map((item, index) => `
+                            <div class="matching-item">
+                                <strong>${index + 1}.</strong> ${item}
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="matching-arrow">
+                        <i class="fas fa-arrows-alt-h"></i>
+                    </div>
+                    <div class="matching-column">
+                        <h4>Column B</h4>
+                        ${rights.map((item, index) => `
+                            <div class="matching-item">
+                                <strong>${String.fromCharCode(65 + index)}.</strong> ${item}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Show correct answers if available
+        if (Object.keys(answerMap).length > 0) {
+            html += `
+                <div>
+                    <h4 style="color: #374151; margin-bottom: 15px;">
+                        <i class="fas fa-check-circle" style="color: #10b981; margin-right: 8px;"></i>
+                        Correct Answers
+                    </h4>
+                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px;">
+                        ${Object.entries(answerMap).map(([left, right]) => `
+                            <div class="matching-pair">
+                                <div class="left-item">${left}</div>
+                                <div class="arrow">
+                                    <i class="fas fa-arrow-right"></i>
+                                </div>
+                                <div class="right-item">${right}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            html += `
+                <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 15px; margin-top: 20px;">
+                    <p style="margin: 0; color: #92400e;">
+                        <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
+                        No correct answers have been set for this matching question.
+                    </p>
+                </div>
+            `;
+        }
+        
+        content.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Error displaying matching question:', error);
+        content.innerHTML = `
+            <div class="no-matching-data">
+                <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #ef4444; margin-bottom: 15px;"></i>
+                <p>Error displaying matching question details.</p>
+                <p style="font-size: 0.9rem; margin-top: 10px;">The question data may be corrupted.</p>
+            </div>
+        `;
+    }
+}
+
+// Function to close the matching modal
+function closeMatchingModal() {
+    document.getElementById('matchingModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+document.getElementById('matchingModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeMatchingModal();
+    }
+});
 document.getElementById('addQuestionBtn').onclick = function() {
     questionBlockCount++;
     const list = document.getElementById('questions-list');

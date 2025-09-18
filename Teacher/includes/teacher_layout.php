@@ -483,7 +483,7 @@ function render_teacher_header(string $active, string $teacherName, string $page
         <span class="username">
             <?= isset($_SESSION['teacher_name']) ? htmlspecialchars($_SESSION['teacher_name']) : 'Uchiha Itachi' ?>
         </span>
-        <form method="post" action="/capstone/Teacher/teacher_logout.php" style="display:inline;" onsubmit="return confirm('Are you sure you want to logout?');">
+        <form method="post" action="teacher_logout.php" style="display:inline;" onsubmit="return confirm('Are you sure you want to logout?');">
             <button type="submit" class="logout-btn">Logout</button>
         </form>
     </div>

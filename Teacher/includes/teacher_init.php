@@ -7,13 +7,13 @@ session_start();
 if (isset($_GET['logout'])) {
     session_unset();
     session_destroy();
-    header('Location: /capstone/Teacher/teacher_login.php');
+    header('Location: ../login.php');
     exit();
 }
 
 // Auth guard: pages under Teacher/ require auth
 if (!isset($_SESSION['teacher_logged_in']) || !$_SESSION['teacher_logged_in']) {
-    header('Location: /capstone/Teacher/teacher_login.php');
+    header('Location: ../login.php');
     exit();
 }
 

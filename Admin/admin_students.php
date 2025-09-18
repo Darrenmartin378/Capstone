@@ -56,25 +56,66 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
                 exit();
             }
             
-            // Check if student number or email already exists
-            $checkStmt = $conn->prepare("SELECT id FROM students WHERE student_number = ? OR email = ?");
-            $checkStmt->bind_param("ss", $student_number, $email);
+            // Construct the full name consistently BEFORE checking for duplicates
+            $first_name = trim($first_name);
+            $middle_initial = trim($middle_initial);
+            $last_name = trim($last_name);
+            
+            $middle_formatted = '';
+            if (!empty($middle_initial)) {
+                $middle_formatted = ' ' . strtoupper($middle_initial) . '.';
+            }
+            $name = $first_name . $middle_formatted . ' ' . $last_name;
+            
+            // Check if student number, email, or full name already exists
+            $checkStmt = $conn->prepare("SELECT id FROM students WHERE student_number = ? OR email = ? OR name = ?");
+            $checkStmt->bind_param("sss", $student_number, $email, $name);
             $checkStmt->execute();
-            if ($checkStmt->get_result()->num_rows > 0) {
-                logError('Student add failed - duplicate student number/email', ['student_number' => $student_number, 'email' => $email]);
-                header("Location: admin_students.php?error=duplicate_credentials");
+            $result = $checkStmt->get_result();
+            if ($result->num_rows > 0) {
+                $checkStmt->close();
+                
+                // Check which field is duplicate - check each field separately
+                $checkEmail = $conn->prepare("SELECT id FROM students WHERE email = ?");
+                $checkEmail->bind_param("s", $email);
+                $checkEmail->execute();
+                $emailResult = $checkEmail->get_result();
+                $checkEmail->close();
+                
+                $checkStudentNumber = $conn->prepare("SELECT id FROM students WHERE student_number = ?");
+                $checkStudentNumber->bind_param("s", $student_number);
+                $checkStudentNumber->execute();
+                $studentNumberResult = $checkStudentNumber->get_result();
+                $checkStudentNumber->close();
+                
+                $checkName = $conn->prepare("SELECT id FROM students WHERE name = ?");
+                $checkName->bind_param("s", $name);
+                $checkName->execute();
+                $nameResult = $checkName->get_result();
+                $checkName->close();
+                
+                if ($emailResult->num_rows > 0) {
+                    logError('Student add failed - duplicate email', ['email' => $email]);
+                    header("Location: admin_students.php?error=duplicate_email");
+                } elseif ($studentNumberResult->num_rows > 0) {
+                    logError('Student add failed - duplicate student number', ['student_number' => $student_number]);
+                    header("Location: admin_students.php?error=duplicate_student_number");
+                } else {
+                    logError('Student add failed - duplicate name', ['name' => $name]);
+                    header("Location: admin_students.php?error=duplicate_name");
+                }
                 exit();
             }
+            $checkStmt->close();
             
-            $full_name = trim($first_name . ' ' . $middle_initial . ' ' . $last_name);
             if ($section_id) {
                 $stmt = $conn->prepare("INSERT INTO students (name, student_number, email, gender, password, section_id) VALUES (?, ?, ?, ?, ?, ?)");
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                $stmt->bind_param("sssssi", $full_name, $student_number, $email, $gender, $hashed_password, $section_id);
+                $stmt->bind_param("sssssi", $name, $student_number, $email, $gender, $hashed_password, $section_id);
             } else {
                 $stmt = $conn->prepare("INSERT INTO students (name, student_number, email, gender, password) VALUES (?, ?, ?, ?, ?)");
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                $stmt->bind_param("sssss", $full_name, $student_number, $email, $gender, $hashed_password);
+                $stmt->bind_param("sssss", $name, $student_number, $email, $gender, $hashed_password);
             }
             
             if (!$stmt->execute()) {
@@ -163,11 +204,11 @@ ob_start();
 
 <style>
     .management-area {
-        background: var(--light-surface);
-        color: var(--light-text);
+        background: var(--gmail-white);
+        color: var(--gmail-text);
         padding: 2rem;
         border-radius: 14px;
-        box-shadow: var(--card-shadow);
+        box-shadow: var(--gmail-shadow);
         animation: fadeIn .7s;
     }
     
@@ -177,7 +218,7 @@ ob_start();
         align-items: center;
         margin-bottom: 20px;
         padding-bottom: 15px;
-        border-bottom: 1px solid var(--primary-accent);
+        border-bottom: 1px solid var(--gmail-primary);
         gap: 20px;
         flex-wrap: wrap;
     }
@@ -192,16 +233,16 @@ ob_start();
         width: 100%;
         padding: 12px 16px;
         border-radius: 25px;
-        border: 2px solid var(--primary-accent);
-        background: var(--light-bg-secondary);
-        color: var(--light-text);
+        border: 2px solid var(--gmail-primary);
+        background: var(--gmail-white);
+        color: var(--gmail-text);
         font-size: 1rem;
         box-shadow: 0 1px 4px rgba(0,0,0,0.08);
         transition: border-color .2s;
     }
     
     .search-bar:focus { 
-        border-color: var(--secondary-accent); 
+        border-color: var(--gmail-secondary); 
         outline: none; 
     }
     
@@ -241,7 +282,7 @@ ob_start();
     }
     
     .add-btn {
-        background: var(--secondary-accent);
+        background: var(--gmail-secondary);
         color: #fff;
         border: none;
         padding: 12px 28px;
@@ -259,7 +300,7 @@ ob_start();
     }
     
     .add-btn:hover { 
-        background: #e94560cc; 
+        background: #d33b2c; 
         transform: translateY(-2px); 
     }
     
@@ -272,8 +313,8 @@ ob_start();
     }
 
     .user-card {
-        background: var(--light-surface);
-        box-shadow: var(--card-shadow);
+        background: var(--gmail-white);
+        box-shadow: var(--gmail-shadow);
         border-radius: 14px;
         width: 280px;
         min-height: 200px;
@@ -287,20 +328,20 @@ ob_start();
     }
     
     .user-card:hover {
-        box-shadow: 0 10px 32px rgba(233,69,96,0.08), var(--card-shadow);
+        box-shadow: 0 10px 32px rgba(234,67,53,0.08), var(--gmail-shadow);
         transform: translateY(-2px) scale(1.02);
     }
     
     .user-card .card-title {
         font-size: 1.15rem;
         font-weight: 600;
-        color: var(--primary-accent);
+        color: var(--gmail-primary);
         margin-bottom: 8px;
     }
     
     .user-card .card-field {
         font-size: 1rem;
-        color: var(--grey-text);
+        color: var(--gmail-text-secondary);
         margin-bottom: 4px;
     }
     
@@ -656,8 +697,9 @@ ob_start();
     }
     
     .success-message::before {
-        content: "✓";
-        font-weight: bold;
+        content: "\f00c";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
         font-size: 1.2rem;
     }
     
@@ -668,8 +710,9 @@ ob_start();
     }
     
     .error-message::before {
-        content: "⚠️";
-        font-weight: bold;
+        content: "\f071";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
         font-size: 1.2rem;
     }
     
@@ -880,6 +923,15 @@ ob_start();
                 case 'validation_failed':
                     echo 'Please check all required fields and try again.';
                     break;
+                case 'duplicate_email':
+                    echo 'Email address already exists. Please use a different email.';
+                    break;
+                case 'duplicate_student_number':
+                    echo 'Student number already exists. Please use a different student number.';
+                    break;
+                case 'duplicate_name':
+                    echo 'A student with this full name already exists. Please use different credentials.';
+                    break;
                 case 'duplicate_credentials':
                     echo 'Student number or email already exists. Please use different credentials.';
                     break;
@@ -947,7 +999,7 @@ ob_start();
                     <label>Password:</label>
                     <div class="password-input-container">
                         <input type="password" id="student-password" name="password" required>
-                        <span class="password-toggle-icon" onclick="togglePasswordVisibility('student-password')">👁</span>
+                        <i class="fas fa-eye password-toggle-icon" onclick="togglePasswordVisibility('student-password')"></i>
                     </div>
                 </div>
             </div>
@@ -1028,10 +1080,10 @@ ob_start();
         
         if (input.type === 'password') {
             input.type = 'text';
-            icon.textContent = '🙈';
+            icon.className = 'fas fa-eye-slash password-toggle-icon';
         } else {
             input.type = 'password';
-            icon.textContent = '👁';
+            icon.className = 'fas fa-eye password-toggle-icon';
         }
     }
     

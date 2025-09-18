@@ -1,3 +1,29 @@
+<?php
+// Function to generate initials from a full name
+function generateInitials($name) {
+    if (empty($name)) {
+        return 'AD'; // Default for Admin
+    }
+    
+    // Split the name into words and filter out empty strings
+    $words = array_filter(explode(' ', trim($name)));
+    
+    if (count($words) >= 2) {
+        // Take first letter of first and last word
+        return strtoupper(substr($words[0], 0, 1) . substr(end($words), 0, 1));
+    } elseif (count($words) == 1) {
+        // If only one word, take first two letters
+        $word = $words[0];
+        if (strlen($word) >= 2) {
+            return strtoupper(substr($word, 0, 2));
+        } else {
+            return strtoupper($word . 'A'); // Add 'A' for Admin
+        }
+    } else {
+        return 'AD'; // Default for Admin
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,46 +32,63 @@
     <title><?php echo isset($page_title) ? $page_title . ' - ' : ''; ?>Admin Panel - Compre Learn</title>
     <style>
         :root {
-            --light-bg: #f6f8fa;
+            --gmail-bg: #f8f9fa;
+            --gmail-white: #ffffff;
+            --gmail-surface: #ffffff;
+            --gmail-primary: #1a73e8;
+            --gmail-primary-hover: #1557b0;
+            --gmail-secondary: #ea4335;
+            --gmail-text: #202124;
+            --gmail-text-secondary: #5f6368;
+            --gmail-border: #dadce0;
+            --gmail-hover: #f1f3f4;
+            --gmail-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+            --gmail-shadow-hover: 0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15);
+            
+            /* Legacy variables for compatibility */
+            --light-bg: #f8f9fa;
             --light-bg-secondary: #ffffff;
-            --light-surface: #e9ecef;
-            --primary-accent: #0f3460;
-            --secondary-accent: #e94560;
-            --light-text: #222;
-            --grey-text: #555;
-            --card-shadow: 0 6px 24px rgba(0,0,0,0.08), 0 1.5px 4px rgba(0,0,0,0.06);
+            --light-surface: #ffffff;
+            --primary-accent: #1a73e8;
+            --secondary-accent: #ea4335;
+            --light-text: #202124;
+            --grey-text: #5f6368;
+            --card-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
         }
         
         * { 
             margin: 0; 
             padding: 0; 
             box-sizing: border-box; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            font-family: 'Google Sans', 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
         }
         
         body { 
-            background: var(--light-bg-secondary); 
-            color: var(--light-text); 
+            background: var(--gmail-bg); 
+            color: var(--gmail-text); 
             min-height: 100vh; 
             overflow-x: hidden; 
+            font-size: 14px;
+            line-height: 1.4;
         }
         
         .dashboard-header {
-            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-            border-bottom: 1px solid rgba(15,52,96,0.1);
-            color: var(--light-text);
-            padding: 1.2rem 2rem;
+            background: var(--gmail-white);
+            border-bottom: 1px solid var(--gmail-border);
+            color: var(--gmail-text);
+            padding: 8px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             position: sticky;
             top: 0;
             z-index: 1001;
-            gap: 1.5rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+            gap: 16px;
+            box-shadow: var(--gmail-shadow);
             transition: margin-left .3s cubic-bezier(.4,0,.2,1);
-            margin-left: 80px;
-            backdrop-filter: blur(10px);
+            margin-left: 240px;
+            height: 64px;
+            min-height: 64px;
         }
         
         body.sidebar-hidden .dashboard-header {
@@ -55,77 +98,80 @@
         .logo-container { 
             display: flex; 
             align-items: center; 
-            gap: 16px;
+            gap: 12px;
         }
         
         .logo-image { 
-            height: 44px; 
-            margin-right: 16px; 
+            height: 32px; 
+            margin-right: 12px; 
             max-width: 100%; 
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); 
         }
         
         .dashboard-header h1 { 
-            font-size: 2.2rem; 
-            letter-spacing: 1.2px; 
-            color: var(--primary-accent);
-            font-weight: 700;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            font-size: 22px; 
+            color: var(--gmail-text);
+            font-weight: 400;
+            font-family: 'Google Sans', 'Roboto', sans-serif;
         }
         
         .admin-profile {
             display: flex;
             align-items: center;
-            gap: 18px;
+            gap: 12px;
         }
         
         .profile-icon {
-            font-size: 2.2rem;
-            background: linear-gradient(135deg, var(--primary-accent), #1a4b73);
+            width: 32px;
+            height: 32px;
+            background: #1a73e8;
             color: #fff;
             border-radius: 50%;
-            padding: 8px 12px;
-            box-shadow: 0 4px 12px rgba(15,52,96,0.2);
-            border: 2px solid rgba(255,255,255,0.1);
-        }
-        
-        .admin-name {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
             font-weight: 600;
-            color: var(--light-text);
-            font-size: 1.1rem;
-            margin-right: 8px;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        
-        .logout-btn {
-            background: linear-gradient(135deg, var(--secondary-accent), #ff4757);
-            color: #fff;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: all .3s cubic-bezier(.4,0,.2,1);
-            font-weight: 600;
-            box-shadow: 0 4px 15px rgba(233,69,96,0.3);
-            font-size: 0.95rem;
+            font-family: 'Google Sans', 'Roboto', sans-serif;
             letter-spacing: 0.5px;
         }
         
+        .admin-name {
+            font-weight: 500;
+            color: var(--gmail-text);
+            font-size: 14px;
+            margin-right: 8px;
+        }
+        
+        .logout-btn {
+            background: var(--gmail-white);
+            color: var(--gmail-text);
+            border: 1px solid var(--gmail-border);
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all .2s ease;
+            font-weight: 500;
+            font-size: 14px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+        }
+        
         .logout-btn:hover {
-            background: linear-gradient(135deg, #e94560, #ff3742);
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(233,69,96,0.4);
+            background: var(--gmail-hover);
+            box-shadow: var(--gmail-shadow-hover);
         }
         
         .container {
             max-width: 1600px;
-            margin: 2rem auto;
-            padding: 0 2rem;
+            margin: 24px auto;
+            padding: 0 24px;
             transition: margin-left .3s cubic-bezier(.4,0,.2,1);
-            margin-left: 80px;
-            background: var(--light-bg-secondary);
-            color: var(--light-text);
-            border-radius: 16px;
+            margin-left: 240px;
+            background: var(--gmail-white);
+            color: var(--gmail-text);
+            border-radius: 8px;
+            box-shadow: var(--gmail-shadow);
         }
         
         body.sidebar-hidden .container {
@@ -137,128 +183,105 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 80px;
+            width: 240px;
             height: 100vh;
-            background: linear-gradient(180deg, var(--primary-accent) 0%, #0a2a4a 100%);
-            color: #fff;
-            box-shadow: 0 0 32px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.05);
+            background: var(--gmail-white);
+            color: var(--gmail-text);
+            border-right: 1px solid var(--gmail-border);
             z-index: 1100;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            padding: 20px 0;
-            border-radius: 0 20px 20px 0;
-            transition: transform .3s cubic-bezier(.4,0,.2,1), box-shadow .3s, width .3s;
-            backdrop-filter: blur(10px);
+            padding: 0;
+            transition: transform .3s cubic-bezier(.4,0,.2,1);
         }
         
         .sidebar.hide {
-            transform: translateX(-80px);
-            box-shadow: none;
+            transform: translateX(-240px);
         }
         
         .sidebar-logo {
             display: flex;
-            flex-direction: column;
             align-items: center;
-            margin-bottom: 24px;
-            padding: 12px 8px;
-            border-radius: 12px;
-            background: rgba(255,255,255,0.08);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--gmail-border);
+            background: var(--gmail-white);
         }
         
         .sidebar-logo img {
-            height: 36px;
-            margin-bottom: 6px;
-            filter: brightness(1.1) contrast(1.1);
+            height: 24px;
+            margin-right: 12px;
         }
         
         .sidebar-logo span {
-            font-size: 10px;
-            font-weight: 600;
-            text-align: center;
-            opacity: 0.9;
-            letter-spacing: 0.5px;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--gmail-text);
+            font-family: 'Google Sans', 'Roboto', sans-serif;
         }
         
         .sidebar-menu {
             list-style: none;
             width: 100%;
-            padding: 0 8px;
+            padding: 8px 0;
             margin: 0;
             display: flex;
             flex-direction: column;
-            gap: 6px;
         }
         
         .sidebar-menu a {
             width: 100%;
             background: none;
             border: none;
-            color: rgba(255,255,255,0.8);
-            font-size: 1.4rem;
-            padding: 14px 0;
-            text-align: center;
+            color: var(--gmail-text-secondary);
+            font-size: 14px;
+            padding: 12px 24px;
             cursor: pointer;
-            border-radius: 12px;
-            transition: all .3s cubic-bezier(.4,0,.2,1);
+            transition: all .2s ease;
             display: flex;
             align-items: center;
-            justify-content: center;
             text-decoration: none;
             position: relative;
-            overflow: hidden;
+            border-radius: 0 25px 25px 0;
+            margin-right: 8px;
         }
         
-        .sidebar-menu a::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, var(--secondary-accent), #ff6b7a);
-            opacity: 0;
-            transition: opacity .3s;
-            border-radius: 12px;
+        .sidebar-menu a:hover {
+            background: var(--gmail-hover);
+            color: var(--gmail-text);
         }
         
-        .sidebar-menu a:hover::before,
-        .sidebar-menu a.active::before {
-            opacity: 1;
-        }
-        
-        .sidebar-menu a:hover, 
         .sidebar-menu a.active {
-            color: #fff;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(233,69,96,0.3);
+            background: #e8f0fe;
+            color: var(--gmail-primary);
+            font-weight: 500;
         }
         
-        .sidebar-menu a span {
-            position: relative;
-            z-index: 1;
+        .sidebar-menu a i {
+            margin-right: 16px;
+            font-size: 18px;
+            width: 20px;
+            text-align: center;
         }
         
         .sidebar-toggle-btn {
-            background: linear-gradient(135deg, var(--primary-accent), #1a4b73);
-            color: #fff;
-            border: none;
-            padding: 10px 14px;
-            border-radius: 10px;
+            background: var(--gmail-white);
+            color: var(--gmail-text);
+            border: 1px solid var(--gmail-border);
+            padding: 8px 12px;
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 1.3rem;
-            box-shadow: 0 4px 12px rgba(15,52,96,0.2);
-            transition: all .3s cubic-bezier(.4,0,.2,1);
-            border: 1px solid rgba(255,255,255,0.1);
+            font-size: 18px;
+            transition: all .2s ease;
+            height: 40px;
+            width: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .sidebar-toggle-btn:hover {
-            background: linear-gradient(135deg, var(--secondary-accent), #ff4757);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(233,69,96,0.3);
+            background: var(--gmail-hover);
+            box-shadow: var(--gmail-shadow-hover);
         }
         
         /* Responsive Design */
@@ -282,20 +305,20 @@
         /* Mobile landscape and small tablets */
         @media (max-width: 900px) {
             .sidebar {
-                width: 70px;
+                width: 200px;
             }
             
             .dashboard-header, .container {
-                margin-left: 70px;
+                margin-left: 200px;
             }
             
             .sidebar-logo span {
-                display: none;
+                font-size: 14px;
             }
             
             .sidebar-menu a {
-                font-size: 1.2rem;
-                padding: 12px 0;
+                font-size: 13px;
+                padding: 10px 20px;
             }
         }
         
@@ -304,11 +327,10 @@
             .sidebar { 
                 position: fixed;
                 top: 0;
-                left: -80px;
-                width: 80px; 
+                left: -240px;
+                width: 240px; 
                 height: 100vh;
                 flex-direction: column;
-                padding: 20px 0;
                 transition: left .3s ease;
                 z-index: 1100;
             }
@@ -319,22 +341,25 @@
             
             .dashboard-header, .container { 
                 margin-left: 0;
-                padding: 1rem;
+                padding: 16px;
             }
             
             .dashboard-header {
+                height: 56px;
+                min-height: 56px;
+                padding: 8px 16px;
                 flex-direction: column;
-                gap: 1rem;
-                padding: 1rem;
+                gap: 8px;
             }
             
             .logo-container {
                 width: 100%;
                 justify-content: space-between;
+                order: 1;
             }
             
             .dashboard-header h1 {
-                font-size: 1.5rem;
+                font-size: 18px;
                 text-align: center;
                 flex: 1;
             }
@@ -342,22 +367,24 @@
             .admin-profile {
                 width: 100%;
                 justify-content: center;
-                gap: 12px;
+                gap: 8px;
+                order: 2;
             }
             
             .admin-name {
-                font-size: 1rem;
+                font-size: 13px;
             }
             
             .logout-btn {
-                padding: 10px 20px;
-                font-size: 0.9rem;
+                padding: 6px 12px;
+                font-size: 13px;
+                height: 32px;
             }
             
             .container {
-                margin: 1rem auto;
-                padding: 0 1rem;
-                border-radius: 12px;
+                margin: 16px auto;
+                padding: 0 16px;
+                border-radius: 8px;
             }
         }
         
@@ -377,8 +404,9 @@
             }
             
             .profile-icon {
-                font-size: 1.8rem;
-                padding: 6px 10px;
+                font-size: 14px;
+                width: 36px;
+                height: 36px;
             }
             
             .logout-btn {
@@ -398,17 +426,28 @@
         }
         
         .flash-credentials {
-            background: var(--light-surface);
-            color: var(--light-text);
-            border: 1px solid var(--secondary-accent);
-            padding: 12px 16px;
+            background: #e8f0fe;
+            color: var(--gmail-text);
+            border: 1px solid var(--gmail-primary);
+            padding: 16px;
             border-radius: 8px;
-            margin: 0 0 1rem;
+            margin: 0 0 16px;
             display: flex;
             gap: 12px;
             align-items: center;
             flex-wrap: wrap;
-            box-shadow: var(--card-shadow);
+            box-shadow: var(--gmail-shadow);
+            animation: fadeIn .7s;
+        }
+        
+        .flash-success {
+            background: #e6f4ea;
+            color: #137333;
+            border: 1px solid #34a853;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 0 0 16px;
+            box-shadow: var(--gmail-shadow);
             animation: fadeIn .7s;
         }
         
@@ -424,21 +463,25 @@
         }
         
         .copy-btn {
-            background: #3498db;
+            background: var(--gmail-primary);
             color: #fff;
             border: none;
-            padding: 6px 10px;
-            border-radius: 6px;
+            padding: 6px 12px;
+            border-radius: 4px;
             cursor: pointer;
-            transition: background .2s;
-            font-size: .95rem;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            transition: all .2s ease;
+            font-size: 12px;
+            font-weight: 500;
+            box-shadow: var(--gmail-shadow);
         }
         
         .copy-btn:hover { 
-            background: #217dbb; 
+            background: var(--gmail-primary-hover);
+            box-shadow: var(--gmail-shadow-hover);
         }
     </style>
+    <!-- Font Awesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
 <body>
     <!-- Sidebar -->
@@ -448,11 +491,12 @@
             <span>Compre Learn</span>
         </div>
         <ul class="sidebar-menu">
-            <li><a href="admin_dashboard.php" title="Dashboard" <?php echo $current_page === 'admin_dashboard' ? 'class="active"' : ''; ?>><span>📊</span></a></li>
-            <li><a href="admin_teachers.php" title="Teachers" <?php echo $current_page === 'admin_teachers' ? 'class="active"' : ''; ?>><span>👨‍🏫</span></a></li>
-            <li><a href="admin_students.php" title="Students" <?php echo $current_page === 'admin_students' ? 'class="active"' : ''; ?>><span>🎓</span></a></li>
-            <li><a href="admin_parents.php" title="Parents" <?php echo $current_page === 'admin_parents' ? 'class="active"' : ''; ?>><span>👨‍👩‍👧‍👦</span></a></li>
-            <li><a href="admin_sections.php" title="Sections" <?php echo $current_page === 'admin_sections' ? 'class="active"' : ''; ?>><span>🏫</span></a></li>
+            <li><a href="admin_dashboard.php" title="Dashboard" <?php echo $current_page === 'admin_dashboard' ? 'class="active"' : ''; ?>><i class="fas fa-chart-line"></i>Dashboard</a></li>
+            <li><a href="admin_teachers.php" title="Teachers" <?php echo $current_page === 'admin_teachers' ? 'class="active"' : ''; ?>><i class="fas fa-chalkboard-teacher"></i>Teachers</a></li>
+            <li><a href="admin_students.php" title="Students" <?php echo $current_page === 'admin_students' ? 'class="active"' : ''; ?>><i class="fas fa-user-graduate"></i>Students</a></li>
+            <li><a href="admin_parents.php" title="Parents" <?php echo $current_page === 'admin_parents' ? 'class="active"' : ''; ?>><i class="fas fa-users"></i>Parents</a></li>
+            <li><a href="admin_sections.php" title="Sections" <?php echo $current_page === 'admin_sections' ? 'class="active"' : ''; ?>><i class="fas fa-school"></i>Sections</a></li>
+            <li><a href="admin_admins.php" title="Admin Management" <?php echo $current_page === 'admin_admins' ? 'class="active"' : ''; ?>><i class="fas fa-user-shield"></i>Admin Management</a></li>
         </ul>
     </nav>
 
@@ -464,7 +508,7 @@
             <h1><?php echo isset($page_title) ? $page_title : 'Admin Panel'; ?></h1>
         </div>
         <div class="admin-profile">
-            <span class="profile-icon">👤</span>
+            <div class="profile-icon"><?php echo generateInitials($adminName); ?></div>
             <span class="admin-name"><?php echo h($adminName); ?></span>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
@@ -480,6 +524,12 @@
             <div>Password: <code id="flash-password"><?php echo h($parentCredentialsFlash['password'] ?? ''); ?></code>
                 <button class="copy-btn" onclick="copyText(document.getElementById('flash-password').innerText)">Copy</button>
             </div>
+        </div>
+        <?php endif; ?>
+
+        <?php if (isset($success_message) && $success_message): ?>
+        <div class="flash-success">
+            <div><?php echo h($success_message); ?></div>
         </div>
         <?php endif; ?>
 
@@ -505,7 +555,7 @@
         
         function logout() { 
             if (confirm('Are you sure you want to logout?')) { 
-                window.location.href = 'admin_login.php'; 
+                window.location.href = '../login.php'; 
             } 
         }
         

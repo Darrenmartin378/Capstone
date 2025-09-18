@@ -15,8 +15,8 @@ if ($conn->connect_error) {
 }
 
 // Authentication check for student pages
-if (!isset($_SESSION['student_logged_in']) || $_SESSION['student_logged_in'] !== true) {
-    header('Location: student_login.php');
+if (!isset($_SESSION['student_logged_in']) || !$_SESSION['student_logged_in']) {
+    header('Location: ../login.php');
     exit();
 }
 
@@ -47,7 +47,7 @@ function h($v) {
 if (isset($_GET['logout'])) {
     session_unset();
     session_destroy();
-    header('Location: student_login.php');
+    header('Location: ../login.php');
     exit();
 }
 ?>

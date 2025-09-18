@@ -59,17 +59,58 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
                 exit();
             }
             
-            // Check if username or email already exists
-            $checkStmt = $conn->prepare("SELECT id FROM teachers WHERE username = ? OR email = ?");
-            $checkStmt->bind_param("ss", $username, $email);
+            // Construct the full name consistently BEFORE checking for duplicates
+            $first = trim($first);
+            $middle = trim($middle);
+            $last = trim($last);
+            
+            $middle_formatted = '';
+            if (!empty($middle)) {
+                $middle_formatted = ' ' . strtoupper($middle) . '.';
+            }
+            $name = $first . $middle_formatted . ' ' . $last;
+            
+            // Check if username, email, or full name already exists
+            $checkStmt = $conn->prepare("SELECT id FROM teachers WHERE username = ? OR email = ? OR name = ?");
+            $checkStmt->bind_param("sss", $username, $email, $name);
             $checkStmt->execute();
-            if ($checkStmt->get_result()->num_rows > 0) {
-                logError('Teacher add failed - duplicate username/email', ['username' => $username, 'email' => $email]);
-                header("Location: admin_teachers.php?error=duplicate_credentials");
+            $result = $checkStmt->get_result();
+            if ($result->num_rows > 0) {
+                $checkStmt->close();
+                
+                // Check which field is duplicate - check each field separately
+                $checkUsername = $conn->prepare("SELECT id FROM teachers WHERE username = ?");
+                $checkUsername->bind_param("s", $username);
+                $checkUsername->execute();
+                $usernameResult = $checkUsername->get_result();
+                $checkUsername->close();
+                
+                $checkEmail = $conn->prepare("SELECT id FROM teachers WHERE email = ?");
+                $checkEmail->bind_param("s", $email);
+                $checkEmail->execute();
+                $emailResult = $checkEmail->get_result();
+                $checkEmail->close();
+                
+                $checkName = $conn->prepare("SELECT id FROM teachers WHERE name = ?");
+                $checkName->bind_param("s", $name);
+                $checkName->execute();
+                $nameResult = $checkName->get_result();
+                $checkName->close();
+                
+                if ($usernameResult->num_rows > 0) {
+                    logError('Teacher add failed - duplicate username', ['username' => $username]);
+                    header("Location: admin_teachers.php?error=duplicate_username");
+                } elseif ($emailResult->num_rows > 0) {
+                    logError('Teacher add failed - duplicate email', ['email' => $email]);
+                    header("Location: admin_teachers.php?error=duplicate_email");
+                } else {
+                    logError('Teacher add failed - duplicate name', ['name' => $name]);
+                    header("Location: admin_teachers.php?error=duplicate_name");
+                }
                 exit();
             }
+            $checkStmt->close();
             
-            $name = trim($first . ($middle !== '' ? ' ' . strtoupper(substr($middle,0,1)) . '.' : '') . ' ' . $last);
             $stmt = $conn->prepare("INSERT INTO teachers (name, username, email, password) VALUES (?, ?, ?, ?)");
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
             $stmt->bind_param("ssss", $name, $username, $email, $hashed_password);
@@ -161,11 +202,11 @@ ob_start();
 
 <style>
     .management-area {
-        background: var(--light-surface);
-        color: var(--light-text);
+        background: var(--gmail-white);
+        color: var(--gmail-text);
         padding: 2rem;
         border-radius: 14px;
-        box-shadow: var(--card-shadow);
+        box-shadow: var(--gmail-shadow);
         animation: fadeIn .7s;
     }
     
@@ -175,7 +216,7 @@ ob_start();
         align-items: center;
         margin-bottom: 20px;
         padding-bottom: 15px;
-        border-bottom: 1px solid var(--primary-accent);
+        border-bottom: 1px solid var(--gmail-primary);
         gap: 20px;
         flex-wrap: wrap;
     }
@@ -190,16 +231,16 @@ ob_start();
         width: 100%;
         padding: 12px 16px;
         border-radius: 25px;
-        border: 2px solid var(--primary-accent);
-        background: var(--light-bg-secondary);
-        color: var(--light-text);
+        border: 2px solid var(--gmail-primary);
+        background: var(--gmail-white);
+        color: var(--gmail-text);
         font-size: 1rem;
         box-shadow: 0 1px 4px rgba(0,0,0,0.08);
         transition: border-color .2s;
     }
     
     .search-bar:focus { 
-        border-color: var(--secondary-accent); 
+        border-color: var(--gmail-secondary); 
         outline: none; 
     }
     
@@ -239,7 +280,7 @@ ob_start();
     }
     
     .add-btn {
-        background: var(--secondary-accent);
+        background: var(--gmail-secondary);
         color: #fff;
         border: none;
         padding: 12px 28px;
@@ -257,7 +298,7 @@ ob_start();
     }
     
     .add-btn:hover { 
-        background: #e94560cc; 
+        background: #d33b2c; 
         transform: translateY(-2px); 
     }
     
@@ -270,8 +311,8 @@ ob_start();
     }
 
     .user-card {
-        background: var(--light-surface);
-        box-shadow: var(--card-shadow);
+        background: var(--gmail-white);
+        box-shadow: var(--gmail-shadow);
         border-radius: 14px;
         width: 280px;
         min-height: 180px;
@@ -285,20 +326,20 @@ ob_start();
     }
     
     .user-card:hover {
-        box-shadow: 0 10px 32px rgba(233,69,96,0.08), var(--card-shadow);
+        box-shadow: 0 10px 32px rgba(234,67,53,0.08), var(--gmail-shadow);
         transform: translateY(-2px) scale(1.02);
     }
     
     .user-card .card-title {
         font-size: 1.15rem;
         font-weight: 600;
-        color: var(--primary-accent);
+        color: var(--gmail-primary);
         margin-bottom: 8px;
     }
     
     .user-card .card-field {
         font-size: 1rem;
-        color: var(--grey-text);
+        color: var(--gmail-text-secondary);
         margin-bottom: 4px;
     }
     
@@ -730,8 +771,9 @@ ob_start();
     }
     
     .success-message::before {
-        content: "✓";
-        font-weight: bold;
+        content: "\f00c";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
         font-size: 1.2rem;
     }
     
@@ -742,8 +784,9 @@ ob_start();
     }
     
     .error-message::before {
-        content: "⚠️";
-        font-weight: bold;
+        content: "\f071";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
         font-size: 1.2rem;
     }
     
@@ -921,6 +964,15 @@ ob_start();
                 case 'validation_failed':
                     echo 'Please check all required fields and try again.';
                     break;
+                case 'duplicate_username':
+                    echo 'Username already exists. Please choose a different username.';
+                    break;
+                case 'duplicate_email':
+                    echo 'Email address already exists. Please use a different email.';
+                    break;
+                case 'duplicate_name':
+                    echo 'A teacher with this full name already exists. Please use different credentials.';
+                    break;
                 case 'duplicate_credentials':
                     echo 'Username or email already exists. Please use different credentials.';
                     break;
@@ -979,7 +1031,7 @@ ob_start();
                     <label>Password:</label>
                     <div class="password-input-container">
                         <input type="password" id="teacher-password" name="password" required>
-                        <span class="password-toggle-icon" onclick="togglePasswordVisibility('teacher-password')">👁</span>
+                        <i class="fas fa-eye password-toggle-icon" onclick="togglePasswordVisibility('teacher-password')"></i>
                     </div>
                 </div>
                 <div class="form-group form-actions">
@@ -1058,10 +1110,10 @@ ob_start();
         
         if (input.type === 'password') {
             input.type = 'text';
-            icon.textContent = '🙈';
+            icon.className = 'fas fa-eye-slash password-toggle-icon';
         } else {
             input.type = 'password';
-            icon.textContent = '👁';
+            icon.className = 'fas fa-eye password-toggle-icon';
         }
     }
     

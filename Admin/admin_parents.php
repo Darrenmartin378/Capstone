@@ -66,19 +66,96 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
                 exit();
             }
             
-            // Check if username or email already exists (if not auto-generating)
+            // Construct the full name consistently BEFORE checking for duplicates
+            $first_name = trim($first_name);
+            $middle_initial = trim($middle_initial);
+            $last_name = trim($last_name);
+            
+            $middle_formatted = '';
+            if (!empty($middle_initial)) {
+                $middle_formatted = ' ' . strtoupper($middle_initial) . '.';
+            }
+            $name = $first_name . $middle_formatted . ' ' . $last_name;
+            
+            // Check if username, email, or full name already exists (if not auto-generating)
             if (!$auto) {
-                $checkStmt = $conn->prepare("SELECT id FROM parents WHERE username = ? OR email = ?");
-                $checkStmt->bind_param("ss", $username, $email);
+                $checkStmt = $conn->prepare("SELECT id FROM parents WHERE username = ? OR email = ? OR name = ?");
+                $checkStmt->bind_param("sss", $username, $email, $name);
                 $checkStmt->execute();
-                if ($checkStmt->get_result()->num_rows > 0) {
-                    logError('Parent add failed - duplicate username/email', ['username' => $username, 'email' => $email]);
-                    header("Location: admin_parents.php?error=duplicate_credentials");
+                $result = $checkStmt->get_result();
+                if ($result->num_rows > 0) {
+                    $checkStmt->close();
+                    
+                    // Check which field is duplicate - check each field separately
+                    $checkUsername = $conn->prepare("SELECT id FROM parents WHERE username = ?");
+                    $checkUsername->bind_param("s", $username);
+                    $checkUsername->execute();
+                    $usernameResult = $checkUsername->get_result();
+                    $checkUsername->close();
+                    
+                    $checkEmail = $conn->prepare("SELECT id FROM parents WHERE email = ?");
+                    $checkEmail->bind_param("s", $email);
+                    $checkEmail->execute();
+                    $emailResult = $checkEmail->get_result();
+                    $checkEmail->close();
+                    
+                    $checkName = $conn->prepare("SELECT id FROM parents WHERE name = ?");
+                    $checkName->bind_param("s", $name);
+                    $checkName->execute();
+                    $nameResult = $checkName->get_result();
+                    $checkName->close();
+                    
+                    if ($usernameResult->num_rows > 0) {
+                        logError('Parent add failed - duplicate username', ['username' => $username]);
+                        header("Location: admin_parents.php?error=duplicate_username");
+                    } elseif ($emailResult->num_rows > 0) {
+                        logError('Parent add failed - duplicate email', ['email' => $email]);
+                        header("Location: admin_parents.php?error=duplicate_email");
+                    } else {
+                        logError('Parent add failed - duplicate name', ['name' => $name]);
+                        header("Location: admin_parents.php?error=duplicate_name");
+                    }
                     exit();
                 }
+                $checkStmt->close();
             }
             
-            $name = trim($first_name . ' ' . $middle_initial . ' ' . $last_name);
+            // Always check for duplicate email and name even with auto-generation
+            $checkEmailStmt = $conn->prepare("SELECT id FROM parents WHERE email = ?");
+            $checkEmailStmt->bind_param("s", $email);
+            $checkEmailStmt->execute();
+            if ($checkEmailStmt->get_result()->num_rows > 0) {
+                logError('Parent add failed - duplicate email', ['email' => $email]);
+                header("Location: admin_parents.php?error=duplicate_email");
+                $checkEmailStmt->close();
+                exit();
+            }
+            $checkEmailStmt->close();
+            
+            $checkNameStmt = $conn->prepare("SELECT id FROM parents WHERE name = ?");
+            $checkNameStmt->bind_param("s", $name);
+            $checkNameStmt->execute();
+            if ($checkNameStmt->get_result()->num_rows > 0) {
+                logError('Parent add failed - duplicate name', ['name' => $name]);
+                header("Location: admin_parents.php?error=duplicate_name");
+                $checkNameStmt->close();
+                exit();
+            }
+            $checkNameStmt->close();
+            
+            // Check if the selected student is already linked to another parent
+            $checkStudentStmt = $conn->prepare("SELECT id, name FROM parents WHERE student_id = ?");
+            $checkStudentStmt->bind_param("i", $student_id_fk);
+            $checkStudentStmt->execute();
+            $studentResult = $checkStudentStmt->get_result();
+            if ($studentResult->num_rows > 0) {
+                $existingParent = $studentResult->fetch_assoc();
+                logError('Parent add failed - student already linked', ['student_id' => $student_id_fk, 'existing_parent' => $existingParent['name']]);
+                header("Location: admin_parents.php?error=student_already_linked");
+                $checkStudentStmt->close();
+                exit();
+            }
+            $checkStudentStmt->close();
 
             if ($auto || $username === '' || $plain_password === '') {
                 // Generate username based on student id or token
@@ -191,7 +268,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
 // Get data for display
 $search_term = $_GET['search'] ?? '';
 $search_query = "%" . $search_term . "%";
-$students = $conn->query("SELECT * FROM students ORDER BY name");
+$students = $conn->query("SELECT * FROM students WHERE id NOT IN (SELECT student_id FROM parents WHERE student_id IS NOT NULL) ORDER BY name");
 
 $sql_parents = "SELECT p.*, s.name as student_name FROM parents p LEFT JOIN students s ON p.student_id = s.id WHERE p.name LIKE ? OR p.username LIKE ? ORDER BY p.created_at DESC";
 $stmt_parents = $conn->prepare($sql_parents);
@@ -205,11 +282,11 @@ ob_start();
 
 <style>
     .management-area {
-        background: var(--light-surface);
-        color: var(--light-text);
+        background: var(--gmail-white);
+        color: var(--gmail-text);
         padding: 2rem;
         border-radius: 14px;
-        box-shadow: var(--card-shadow);
+        box-shadow: var(--gmail-shadow);
         animation: fadeIn .7s;
     }
     
@@ -219,7 +296,7 @@ ob_start();
         align-items: center;
         margin-bottom: 20px;
         padding-bottom: 15px;
-        border-bottom: 1px solid var(--primary-accent);
+        border-bottom: 1px solid var(--gmail-primary);
         gap: 20px;
         flex-wrap: wrap;
     }
@@ -234,16 +311,16 @@ ob_start();
         width: 100%;
         padding: 12px 16px;
         border-radius: 25px;
-        border: 2px solid var(--primary-accent);
-        background: var(--light-bg-secondary);
-        color: var(--light-text);
+        border: 2px solid var(--gmail-primary);
+        background: var(--gmail-white);
+        color: var(--gmail-text);
         font-size: 1rem;
         box-shadow: 0 1px 4px rgba(0,0,0,0.08);
         transition: border-color .2s;
     }
     
     .search-bar:focus { 
-        border-color: var(--secondary-accent); 
+        border-color: var(--gmail-secondary); 
         outline: none; 
     }
     
@@ -253,7 +330,7 @@ ob_start();
         right: 0; 
         height: 100%; 
         width: 80px;
-        background: var(--primary-accent);
+        background: var(--gmail-primary);
         border: none;
         color: #fff;
         border-radius: 0 25px 25px 0;
@@ -265,7 +342,7 @@ ob_start();
     }
     
     .search-btn:hover { 
-        background: var(--secondary-accent); 
+        background: var(--gmail-secondary); 
     }
     
     .clear-btn {
@@ -275,7 +352,7 @@ ob_start();
         transform: translateY(-50%);
         background: none; 
         border: none;
-        color: var(--grey-text);
+        color: var(--gmail-text-secondary);
         font-size: 1.7rem; 
         cursor: pointer;
         display: none; 
@@ -283,7 +360,7 @@ ob_start();
     }
     
     .add-btn {
-        background: var(--secondary-accent);
+        background: var(--gmail-secondary);
         color: #fff;
         border: none;
         padding: 12px 28px;
@@ -301,7 +378,7 @@ ob_start();
     }
     
     .add-btn:hover { 
-        background: #e94560cc; 
+        background: #d33b2c; 
         transform: translateY(-2px); 
     }
     
@@ -314,8 +391,8 @@ ob_start();
     }
 
     .user-card {
-        background: var(--light-surface);
-        box-shadow: var(--card-shadow);
+        background: var(--gmail-white);
+        box-shadow: var(--gmail-shadow);
         border-radius: 14px;
         width: 280px;
         min-height: 180px;
@@ -329,20 +406,20 @@ ob_start();
     }
     
     .user-card:hover {
-        box-shadow: 0 10px 32px rgba(233,69,96,0.08), var(--card-shadow);
+        box-shadow: 0 10px 32px rgba(234,67,53,0.08), var(--gmail-shadow);
         transform: translateY(-2px) scale(1.02);
     }
     
     .user-card .card-title {
         font-size: 1.15rem;
         font-weight: 600;
-        color: var(--primary-accent);
+        color: var(--gmail-primary);
         margin-bottom: 8px;
     }
     
     .user-card .card-field {
         font-size: 1rem;
-        color: var(--grey-text);
+        color: var(--gmail-text-secondary);
         margin-bottom: 4px;
     }
     
@@ -757,8 +834,9 @@ ob_start();
     }
     
     .success-message::before {
-        content: "✓";
-        font-weight: bold;
+        content: "\f00c";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
         font-size: 1.2rem;
     }
     
@@ -769,8 +847,9 @@ ob_start();
     }
     
     .error-message::before {
-        content: "⚠️";
-        font-weight: bold;
+        content: "\f071";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
         font-size: 1.2rem;
     }
     
@@ -1003,6 +1082,18 @@ ob_start();
                 case 'validation_failed':
                     echo 'Please check all required fields and try again.';
                     break;
+                case 'duplicate_username':
+                    echo 'Username already exists. Please choose a different username.';
+                    break;
+                case 'duplicate_email':
+                    echo 'Email address already exists. Please use a different email.';
+                    break;
+                case 'duplicate_name':
+                    echo 'A parent with this full name already exists. Please use different credentials.';
+                    break;
+                case 'student_already_linked':
+                    echo 'This student is already linked to another parent. Please select a different student.';
+                    break;
                 case 'duplicate_credentials':
                     echo 'Username or email already exists. Please use different credentials.';
                     break;
@@ -1051,18 +1142,23 @@ ob_start();
                     <select id="parent-student-id" name="student_id">
                         <option value="">Select Student</option>
                         <?php 
-                        $students_for_parents = $conn->query("SELECT id, name FROM students ORDER BY name");
+                        $students_for_parents = $conn->query("SELECT id, name FROM students WHERE id NOT IN (SELECT student_id FROM parents WHERE student_id IS NOT NULL) ORDER BY name");
+                        $available_students = 0;
                         while($student = $students_for_parents->fetch_assoc()): 
+                            $available_students++;
                         ?>
                         <option value="<?php echo $student['id']; ?>" <?php echo ($pendingRegistration && $pendingRegistration['student_id'] == $student['id']) ? 'selected' : ''; ?>><?php echo h($student['name']); ?></option>
                         <?php endwhile; ?>
+                        <?php if ($available_students == 0): ?>
+                        <option value="" disabled>No available students (all students already have parents)</option>
+                        <?php endif; ?>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>Password:</label>
                     <div class="password-input-container">
                         <input type="password" id="parent-password" name="password" required>
-                        <span class="password-toggle-icon" onclick="togglePasswordVisibility('parent-password')">👁</span>
+                        <i class="fas fa-eye password-toggle-icon" onclick="togglePasswordVisibility('parent-password')"></i>
                     </div>
                 </div>
                 <div class="form-group checkbox-group">
@@ -1142,10 +1238,10 @@ ob_start();
         
         if (input.type === 'password') {
             input.type = 'text';
-            icon.textContent = '🙈';
+            icon.className = 'fas fa-eye-slash password-toggle-icon';
         } else {
             input.type = 'password';
-            icon.textContent = '👁';
+            icon.className = 'fas fa-eye password-toggle-icon';
         }
     }
     

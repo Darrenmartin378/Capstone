@@ -3,6 +3,12 @@ require_once __DIR__ . '/includes/admin_init.php';
 
 $page_title = 'Dashboard';
 
+// Handle success message from login
+$success_message = '';
+if (isset($_GET['login']) && $_GET['login'] == 'success') {
+    $success_message = 'Welcome back! You have successfully logged in.';
+}
+
 // Get statistics
 $teacher_count = $conn->query("SELECT COUNT(*) AS cnt FROM teachers")->fetch_assoc()['cnt'];
 $student_count = $conn->query("SELECT COUNT(*) AS cnt FROM students")->fetch_assoc()['cnt'];
@@ -46,10 +52,10 @@ ob_start();
     }
     
     .stat-card {
-        background: var(--light-surface);
-        color: var(--light-text);
+        background: var(--gmail-white);
+        color: var(--gmail-text);
         border: 2px solid transparent;
-        box-shadow: var(--card-shadow);
+        box-shadow: var(--gmail-shadow);
         transition: border-color .3s, box-shadow .3s, transform .2s;
         position: relative;
         overflow: hidden;
@@ -60,8 +66,8 @@ ob_start();
     }
     
     .stat-card:hover {
-        border-color: var(--secondary-accent);
-        box-shadow: 0 10px 32px rgba(233,69,96,0.08), var(--card-shadow);
+        border-color: var(--gmail-secondary);
+        box-shadow: 0 10px 32px rgba(234,67,53,0.08), var(--gmail-shadow);
         transform: translateY(-2px) scale(1.02);
     }
     
@@ -72,7 +78,7 @@ ob_start();
         top: -30px;
         width: 60px; 
         height: 60px;
-        background: var(--secondary-accent);
+        background: var(--gmail-secondary);
         opacity: .08;
         border-radius: 50%;
         z-index: 0;
@@ -88,11 +94,11 @@ ob_start();
         font-size: 2.5rem; 
         font-weight: 700;
         margin-bottom: 8px; 
-        color: var(--primary-accent);
+        color: var(--gmail-primary);
     }
     
     .stat-label { 
-        color: var(--grey-text); 
+        color: var(--gmail-text-secondary); 
         font-size: 1.1rem; 
         font-weight: 500;
     }
@@ -105,19 +111,19 @@ ob_start();
     }
     
     .activity-section {
-        background: var(--light-surface);
-        color: var(--light-text);
+        background: var(--gmail-white);
+        color: var(--gmail-text);
         padding: 24px;
         border-radius: 16px;
-        box-shadow: var(--card-shadow);
+        box-shadow: var(--gmail-shadow);
         animation: fadeIn .7s;
     }
     
     .activity-section h3 {
-        color: var(--primary-accent);
+        color: var(--gmail-primary);
         margin-bottom: 20px;
         font-size: 1.3rem;
-        border-bottom: 2px solid var(--primary-accent);
+        border-bottom: 2px solid var(--gmail-primary);
         padding-bottom: 10px;
     }
     
@@ -141,36 +147,36 @@ ob_start();
     
     .activity-name {
         font-weight: 500;
-        color: var(--light-text);
+        color: var(--gmail-text);
     }
     
     .activity-date {
-        color: var(--grey-text);
+        color: var(--gmail-text-secondary);
         font-size: 0.9rem;
     }
     
     .activity-type {
-        color: var(--secondary-accent);
+        color: var(--gmail-secondary);
         font-weight: 600;
         font-size: 0.85rem;
         margin-right: 8px;
     }
     
     .quick-actions {
-        background: var(--light-surface);
-        color: var(--light-text);
+        background: var(--gmail-white);
+        color: var(--gmail-text);
         padding: 24px;
         border-radius: 16px;
-        box-shadow: var(--card-shadow);
+        box-shadow: var(--gmail-shadow);
         animation: fadeIn .7s;
         grid-column: 1 / -1;
     }
     
     .quick-actions h3 {
-        color: var(--primary-accent);
+        color: var(--gmail-primary);
         margin-bottom: 20px;
         font-size: 1.3rem;
-        border-bottom: 2px solid var(--primary-accent);
+        border-bottom: 2px solid var(--gmail-primary);
         padding-bottom: 10px;
     }
     
@@ -181,7 +187,7 @@ ob_start();
     }
     
     .quick-action-btn {
-        background: var(--primary-accent);
+        background: var(--gmail-primary);
         color: #fff;
         border: none;
         padding: 16px 20px;
@@ -199,7 +205,7 @@ ob_start();
     }
     
     .quick-action-btn:hover {
-        background: var(--secondary-accent);
+        background: var(--gmail-secondary);
         transform: translateY(-2px);
         color: #fff;
     }
@@ -314,7 +320,7 @@ ob_start();
             gap: 12px;
         }
         
-        .quick-action-btn span {
+        .quick-action-btn i {
             font-size: 1.1rem;
         }
     }
@@ -353,7 +359,7 @@ ob_start();
             gap: 10px;
         }
         
-        .quick-action-btn span {
+        .quick-action-btn i {
             font-size: 1rem;
         }
     }
@@ -361,28 +367,28 @@ ob_start();
 
 <div class="dashboard-stats">
     <div class="stat-card" onclick="window.location.href='admin_teachers.php'">
-        <span class="stat-icon">👨‍🏫</span>
+        <i class="fas fa-chalkboard-teacher stat-icon"></i>
                 <div class="stat-number"><?php echo $teacher_count; ?></div>
                 <div class="stat-label">Total Teachers</div>
-            </div>
+    </div>
     
     <div class="stat-card" onclick="window.location.href='admin_students.php'">
-        <span class="stat-icon">🎓</span>
+        <i class="fas fa-user-graduate stat-icon"></i>
                 <div class="stat-number"><?php echo $student_count; ?></div>
                 <div class="stat-label">Total Students</div>
-            </div>
+    </div>
     
     <div class="stat-card" onclick="window.location.href='admin_parents.php'">
-        <span class="stat-icon">👨‍👩‍👧‍👦</span>
+        <i class="fas fa-users stat-icon"></i>
                 <div class="stat-number"><?php echo $parent_count; ?></div>
                 <div class="stat-label">Total Parents</div>
-            </div>
+    </div>
     
     <div class="stat-card" onclick="window.location.href='admin_sections.php'">
-        <span class="stat-icon">🏫</span>
+        <i class="fas fa-school stat-icon"></i>
                 <div class="stat-number"><?php echo $section_count; ?></div>
                 <div class="stat-label">Total Sections</div>
-            </div>
+    </div>
         </div>
 
 <div class="dashboard-content">
@@ -454,19 +460,19 @@ ob_start();
     <h3>Quick Actions</h3>
     <div class="quick-actions-grid">
         <a href="admin_teachers.php" class="quick-action-btn">
-            <span>👨‍🏫</span>
+            <i class="fas fa-chalkboard-teacher"></i>
             Manage Teachers
         </a>
         <a href="admin_students.php" class="quick-action-btn">
-            <span>🎓</span>
+            <i class="fas fa-user-graduate"></i>
             Manage Students
         </a>
         <a href="admin_parents.php" class="quick-action-btn">
-            <span>👨‍👩‍👧‍👦</span>
+            <i class="fas fa-users"></i>
             Manage Parents
         </a>
         <a href="admin_sections.php" class="quick-action-btn">
-            <span>🏫</span>
+            <i class="fas fa-school"></i>
             Manage Sections
         </a>
         </div>

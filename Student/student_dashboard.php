@@ -3,6 +3,12 @@ require_once 'includes/student_init.php';
 
 $pageTitle = 'Dashboard';
 
+// Handle success message from login
+$success_message = '';
+if (isset($_GET['login']) && $_GET['login'] == 'success') {
+    $success_message = 'Welcome back! You have successfully logged in.';
+}
+
 // Get counts for dashboard stats
 $materialsCount = 0;
 $materialsRes = $conn->query("SELECT COUNT(*) as count FROM reading_materials");
@@ -179,6 +185,12 @@ ob_start();
         }
     }
     </style>
+
+<?php if ($success_message): ?>
+<div class="success-message" style="background: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 12px 16px; border-radius: 8px; margin: 0 0 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); animation: fadeIn 0.7s;">
+    <?php echo h($success_message); ?>
+</div>
+<?php endif; ?>
 
 <div class="welcome-section">
     <h1>Welcome back, <?php echo h($studentName); ?>! 👋</h1>

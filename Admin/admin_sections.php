@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
             $checkStmt->bind_param("s", $section_name);
             $checkStmt->execute();
             if ($checkStmt->get_result()->num_rows > 0) {
+                logError('Section add failed - duplicate name', ['name' => $section_name]);
                 header("Location: admin_sections.php?error=duplicate_name");
                 exit();
             }
@@ -179,11 +180,11 @@ ob_start();
 
 <style>
     .management-area {
-        background: var(--light-surface);
-        color: var(--light-text);
+        background: var(--gmail-white);
+        color: var(--gmail-text);
         padding: 2rem;
         border-radius: 14px;
-        box-shadow: var(--card-shadow);
+        box-shadow: var(--gmail-shadow);
         animation: fadeIn .7s;
     }
     
@@ -193,14 +194,14 @@ ob_start();
         align-items: center;
         margin-bottom: 20px;
         padding-bottom: 15px;
-        border-bottom: 1px solid var(--primary-accent);
+        border-bottom: 1px solid var(--gmail-primary);
         gap: 20px;
         flex-wrap: wrap;
     }
     
     
     .add-btn {
-        background: var(--secondary-accent);
+        background: var(--gmail-secondary);
         color: #fff;
         border: none;
         padding: 12px 28px;
@@ -218,7 +219,7 @@ ob_start();
     }
     
     .add-btn:hover { 
-        background: #e94560cc; 
+        background: #d33b2c; 
         transform: translateY(-2px); 
     }
     
@@ -342,8 +343,9 @@ ob_start();
     }
     
     .success-message::before {
-        content: "✓";
-        font-weight: bold;
+        content: "\f00c";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
         font-size: 1.2rem;
     }
     
@@ -354,8 +356,9 @@ ob_start();
     }
     
     .error-message::before {
-        content: "⚠️";
-        font-weight: bold;
+        content: "\f071";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
         font-size: 1.2rem;
     }
     
@@ -1093,7 +1096,7 @@ ob_start();
                     echo 'Invalid data provided. Please check your input.';
                     break;
                 case 'duplicate_name':
-                    echo 'A section with this name already exists.';
+                    echo 'A section with this name already exists. Please choose a different name.';
                     break;
                 case 'invalid_id':
                     echo 'Invalid section ID provided.';
