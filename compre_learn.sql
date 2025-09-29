@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 15, 2025 at 07:34 PM
+-- Generation Time: Sep 29, 2025 at 08:29 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -44,7 +44,7 @@ CREATE TABLE `admins` (
 --
 
 INSERT INTO `admins` (`id`, `username`, `email`, `password_hash`, `full_name`, `is_active`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 'admin', 'admin@comprelearn.com', '$2y$10$v5Atb/mLopapFKUcR9dDT.ZvdRtblvZF4b..9soIskFrTQtz/aKi6', 'System Administrator', 1, '2025-09-15 17:10:30', '2025-09-08 04:21:06', '2025-09-15 17:10:30');
+(1, 'admin', 'admin@comprelearn.com', '$2y$10$uXxHjewefyErkbGYQ44EPezRLxE2z32C5f8WTssbB0ViCcGszAxku', 'System Administrator', 1, NULL, '2025-09-24 04:59:27', '2025-09-24 04:59:27');
 
 -- --------------------------------------------------------
 
@@ -55,8 +55,9 @@ INSERT INTO `admins` (`id`, `username`, `email`, `password_hash`, `full_name`, `
 CREATE TABLE `announcements` (
   `id` int(11) NOT NULL,
   `teacher_id` int(11) NOT NULL,
+  `section_id` int(11) DEFAULT NULL,
   `title` varchar(255) NOT NULL,
-  `content` text NOT NULL,
+  `content` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -64,8 +65,8 @@ CREATE TABLE `announcements` (
 -- Dumping data for table `announcements`
 --
 
-INSERT INTO `announcements` (`id`, `teacher_id`, `title`, `content`, `created_at`) VALUES
-(1, 2, 'Assessment – Reminder', 'Hello Class! 👋\r\nJust a reminder that our Midterm Assessment will be on September 20, 2025 (Friday) at 10:00 AM. Please review the uploaded materials and don’t forget to bring your calculators.', '2025-09-14 16:57:09');
+INSERT INTO `announcements` (`id`, `teacher_id`, `section_id`, `title`, `content`, `created_at`) VALUES
+(1, 5, NULL, 'Announcement!', 'I will post an materials for you to read.', '2025-09-29 17:03:28');
 
 -- --------------------------------------------------------
 
@@ -77,25 +78,14 @@ CREATE TABLE `assessments` (
   `id` int(11) NOT NULL,
   `teacher_id` int(11) NOT NULL,
   `title` varchar(255) NOT NULL,
+  `original_set_title` varchar(255) DEFAULT NULL,
   `description` text DEFAULT NULL,
-  `theme_settings` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`theme_settings`)),
+  `difficulty` varchar(20) NOT NULL DEFAULT 'medium',
+  `theme_settings` longtext DEFAULT NULL,
   `related_material_id` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `assessments`
---
-
-INSERT INTO `assessments` (`id`, `teacher_id`, `title`, `description`, `theme_settings`, `related_material_id`, `created_at`, `updated_at`) VALUES
-(8, 2, 'Assessment1', 'asdasd', NULL, NULL, '2025-09-14 08:37:08', '2025-09-14 08:37:08'),
-(9, 2, 'Assessment2', 'asdasd', NULL, NULL, '2025-09-14 08:38:30', '2025-09-14 08:38:30'),
-(10, 2, 'fdsfdas', 'dadfds', NULL, NULL, '2025-09-14 08:47:45', '2025-09-14 08:47:45'),
-(11, 2, 'ddad', 'dsadasd', NULL, NULL, '2025-09-14 08:50:13', '2025-09-14 08:50:13'),
-(12, 2, 'Demo Assessment - Questions from Bank', 'This assessment demonstrates using questions from the question bank', NULL, NULL, '2025-09-14 09:16:12', '2025-09-14 09:16:12'),
-(13, 2, 'Demo Assessment - Questions from Bank', 'This assessment demonstrates using questions from the question bank', NULL, NULL, '2025-09-14 09:16:33', '2025-09-14 09:16:33'),
-(14, 2, 'dsqwewqe21321', 'ewqwqwqwqwqwqwqwqwqwqwqasd', NULL, NULL, '2025-09-15 03:05:23', '2025-09-15 03:05:23');
 
 -- --------------------------------------------------------
 
@@ -106,19 +96,11 @@ INSERT INTO `assessments` (`id`, `teacher_id`, `title`, `description`, `theme_se
 CREATE TABLE `assessment_assignments` (
   `id` int(11) NOT NULL,
   `assessment_id` int(11) NOT NULL,
-  `section_id` int(11) DEFAULT NULL,
-  `student_id` int(11) DEFAULT NULL,
-  `assigned_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `section_id` int(11) NOT NULL,
+  `assigned_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `due_date` timestamp NULL DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `assessment_assignments`
---
-
-INSERT INTO `assessment_assignments` (`id`, `assessment_id`, `section_id`, `student_id`, `assigned_at`) VALUES
-(2, 11, 4, NULL, '2025-09-14 09:01:08'),
-(3, 13, 4, NULL, '2025-09-14 09:16:33'),
-(4, 14, 4, NULL, '2025-09-15 03:05:23');
 
 -- --------------------------------------------------------
 
@@ -131,28 +113,16 @@ CREATE TABLE `assessment_questions` (
   `assessment_id` int(11) NOT NULL,
   `question_type` enum('multiple_choice','matching','essay') NOT NULL,
   `question_text` text NOT NULL,
-  `options` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`options`)),
+  `options` longtext DEFAULT NULL,
   `answer` text DEFAULT NULL,
+  `difficulty` varchar(20) DEFAULT 'medium',
+  `word_limit` int(11) DEFAULT 50,
+  `time_limit` int(11) DEFAULT 30,
+  `rubrics` text DEFAULT NULL,
+  `original_question_id` int(11) DEFAULT NULL,
   `question_bank_id` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `assessment_questions`
---
-
-INSERT INTO `assessment_questions` (`id`, `assessment_id`, `question_type`, `question_text`, `options`, `answer`, `question_bank_id`, `created_at`) VALUES
-(3, 8, 'multiple_choice', 'dsdsad', '{\"A\":\"a\",\"B\":\"s\",\"C\":\"d\",\"D\":\"f\"}', 'D', NULL, '2025-09-14 08:37:08'),
-(4, 9, 'multiple_choice', 'dsadasd', '{\"A\":\"1\",\"B\":\"23\",\"C\":\"3\",\"D\":\"4\"}', 'B', NULL, '2025-09-14 08:38:30'),
-(5, 10, 'multiple_choice', 'fdsfds', '{\"A\":\"1\",\"B\":\"23\",\"C\":\"45\",\"D\":\"56\"}', 'A', NULL, '2025-09-14 08:47:45'),
-(6, 11, 'multiple_choice', 'dsadsa', '{\"A\":\"a\",\"B\":\"sd\",\"C\":\"df\",\"D\":\"fg\"}', 'A', NULL, '2025-09-14 08:50:13'),
-(7, 12, 'multiple_choice', 'caxfcq', '{\"A\":\"qw\",\"B\":\"er\",\"C\":\"rt\",\"D\":\"ty\"}', 'C', NULL, '2025-09-14 09:16:12'),
-(8, 12, 'multiple_choice', 'ytudfs', '{\"A\":\"gh\",\"B\":\"jk\",\"C\":\"nm\",\"D\":\"as\"}', 'C', NULL, '2025-09-14 09:16:12'),
-(9, 12, 'matching', 'Match the items in Column A with the corresponding items in Column B.', '{\"lefts\":[\"qewwqe\",\"wqeewq\",\"vsfds\"],\"rights\":[\"bvvd\",\"wewq\",\"phgdf\"]}', '{\"qewwqe\":\"wewq\",\"wqeewq\":\"phgdf\",\"vsfds\":\"bvvd\"}', NULL, '2025-09-14 09:16:12'),
-(10, 13, 'multiple_choice', 'caxfcq', '{\"A\":\"qw\",\"B\":\"er\",\"C\":\"rt\",\"D\":\"ty\"}', 'C', NULL, '2025-09-14 09:16:33'),
-(11, 13, 'multiple_choice', 'ytudfs', '{\"A\":\"gh\",\"B\":\"jk\",\"C\":\"nm\",\"D\":\"as\"}', 'C', NULL, '2025-09-14 09:16:33'),
-(12, 13, 'matching', 'Match the items in Column A with the corresponding items in Column B.', '{\"lefts\":[\"qewwqe\",\"wqeewq\",\"vsfds\"],\"rights\":[\"bvvd\",\"wewq\",\"phgdf\"]}', '{\"qewwqe\":\"wewq\",\"wqeewq\":\"phgdf\",\"vsfds\":\"bvvd\"}', NULL, '2025-09-14 09:16:33'),
-(13, 14, 'multiple_choice', 'qweeqwewqew', '{\"A\":\"1\",\"B\":\"2\",\"C\":\"3\",\"D\":\"5\"}', 'D', NULL, '2025-09-15 03:05:23');
 
 -- --------------------------------------------------------
 
@@ -163,18 +133,115 @@ INSERT INTO `assessment_questions` (`id`, `assessment_id`, `question_type`, `que
 CREATE TABLE `assessment_responses` (
   `id` int(11) NOT NULL,
   `assessment_id` int(11) NOT NULL,
-  `question_id` int(11) NOT NULL,
   `student_id` int(11) NOT NULL,
-  `answer` text DEFAULT NULL,
+  `question_id` int(11) NOT NULL,
+  `response` text DEFAULT NULL,
+  `is_correct` tinyint(1) DEFAULT NULL,
+  `score` decimal(5,2) DEFAULT NULL,
   `submitted_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
 --
--- Dumping data for table `assessment_responses`
+-- Table structure for table `essay_questions`
 --
 
-INSERT INTO `assessment_responses` (`id`, `assessment_id`, `question_id`, `student_id`, `answer`, `submitted_at`) VALUES
-(1, 11, 6, 1, 'A', '2025-09-14 09:08:12');
+CREATE TABLE `essay_questions` (
+  `question_id` int(11) NOT NULL,
+  `set_id` int(11) NOT NULL,
+  `question_text` text NOT NULL,
+  `points` int(11) DEFAULT 1,
+  `order_index` int(11) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `difficulty` varchar(16) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `matching_pairs`
+--
+
+CREATE TABLE `matching_pairs` (
+  `id` int(11) NOT NULL,
+  `question_id` int(11) NOT NULL,
+  `left_item` varchar(255) NOT NULL,
+  `right_item` varchar(255) NOT NULL,
+  `correct_answer` varchar(255) NOT NULL,
+  `pair_order` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `matching_questions`
+--
+
+CREATE TABLE `matching_questions` (
+  `question_id` int(11) NOT NULL,
+  `set_id` int(11) NOT NULL,
+  `question_text` text NOT NULL,
+  `left_items` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`left_items`)),
+  `right_items` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`right_items`)),
+  `correct_pairs` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`correct_pairs`)),
+  `points` int(11) DEFAULT 1,
+  `order_index` int(11) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `difficulty` varchar(16) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `matching_questions`
+--
+
+INSERT INTO `matching_questions` (`question_id`, `set_id`, `question_text`, `left_items`, `right_items`, `correct_pairs`, `points`, `order_index`, `created_at`, `updated_at`, `difficulty`) VALUES
+(7, 27, 'Match the following items with their correct answers:', '[\"Run\",\"Beautiful\",\"Yesterday\",\"Book\",\"Quickly\"]', '[\"Noun\",\"Adverb\",\"Verb\",\"Adjective\",\"Adverb of time\"]', '[\"Verb\",\"Adjective\",\"Adverb of time\",\"Noun\",\"Adverb\"]', 5, 0, '2025-09-29 14:32:43', '2025-09-29 14:32:43', ''),
+(8, 27, 'Match the following items with their correct answers:', '[\"She is eating lunch.\",\"They will go to the park.\",\"He played basketball yesterday.\",\"I read every night.\"]', '[\"Simple Past Tense\",\"Simple Present Tense\",\"Simple Future Tense\",\"Present Continuous Tense\"]', '[\"Present Continuous Tense\",\"Simple Future Tense\",\"Simple Past Tense\",\"Simple Present Tense\"]', 4, 0, '2025-09-29 14:32:43', '2025-09-29 14:32:43', ''),
+(9, 28, 'Match the following items with their correct answers:', '[\"Red\",\"Yellow\",\"Blue\"]', '[\"Blueberry\",\"Banana\",\"Cherry\"]', '[\"Cherry\",\"Banana\",\"Blueberry\"]', 3, 0, '2025-09-29 14:43:34', '2025-09-29 14:43:34', ''),
+(10, 30, 'Match the following items with their correct answers:', '[\"Run\",\"Beautiful\"]', '[\"Verb\",\"Adjective\"]', '[\"Verb\",\"Adjective\"]', 2, 0, '2025-09-29 18:14:54', '2025-09-29 18:14:54', ''),
+(11, 31, 'Match the following items with their correct answers:', '[\"Red\",\"Yellow\",\"Blue\"]', '[\"Blueberry\",\"Banana\",\"Cherry\"]', '[\"Cherry\",\"Banana\",\"Blueberry\"]', 2, 0, '2025-09-29 18:27:39', '2025-09-29 18:27:39', '');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `mcq_questions`
+--
+
+CREATE TABLE `mcq_questions` (
+  `question_id` int(11) NOT NULL,
+  `set_id` int(11) NOT NULL,
+  `question_text` text NOT NULL,
+  `choice_a` varchar(500) NOT NULL,
+  `choice_b` varchar(500) NOT NULL,
+  `choice_c` varchar(500) NOT NULL,
+  `choice_d` varchar(500) NOT NULL,
+  `correct_answer` enum('A','B','C','D') NOT NULL,
+  `points` int(11) DEFAULT 1,
+  `order_index` int(11) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `difficulty` varchar(16) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `mcq_questions`
+--
+
+INSERT INTO `mcq_questions` (`question_id`, `set_id`, `question_text`, `choice_a`, `choice_b`, `choice_c`, `choice_d`, `correct_answer`, `points`, `order_index`, `created_at`, `updated_at`, `difficulty`) VALUES
+(20, 26, 'Color Yellow', 'Lemon', 'Blueberry', 'Durian', 'Pomelo', 'A', 1, 0, '2025-09-29 13:42:08', '2025-09-29 13:42:08', ''),
+(21, 27, 'Which of the following is a declarative sentence?', 'Are you going to school today?', 'Please close the door.', 'I am reading my English book.', 'What a beautiful day!', 'C', 1, 0, '2025-09-29 14:32:43', '2025-09-29 14:32:43', ''),
+(22, 27, 'Choose the correct form of the verb:\r\n“She ___ to the market every Sunday.”', 'go', 'goes', 'going', 'gone', 'B', 1, 0, '2025-09-29 14:32:43', '2025-09-29 14:32:43', ''),
+(23, 27, 'What is the plural form of the word child?', 'childs', 'children', 'childes', 'childrens', 'B', 1, 0, '2025-09-29 14:32:43', '2025-09-29 14:32:43', ''),
+(24, 27, 'Which word is a synonym of happy?', 'sad', 'angry', 'joyful', 'tired', 'C', 1, 0, '2025-09-29 14:32:43', '2025-09-29 14:32:43', ''),
+(25, 27, 'Choose the correct punctuated sentence:', 'maria likes apples oranges and bananas.', 'Maria likes apples, oranges, and bananas.', 'Maria likes, apples, oranges, and bananas.', 'Maria, likes apples oranges and bananas.', 'B', 1, 0, '2025-09-29 14:32:43', '2025-09-29 14:32:43', ''),
+(26, 29, 'Which of the following is not part of primary colors', 'Yellow', 'Black', 'Red', 'Blue', 'B', 1, 0, '2025-09-29 16:55:12', '2025-09-29 16:55:12', ''),
+(27, 30, 'Which of the following is a declarative sentence?', 'Are you going to school today?', 'Please close the door.', 'I am reading my English book.', 'What a beautiful day!', 'C', 1, 0, '2025-09-29 18:14:54', '2025-09-29 18:14:54', ''),
+(28, 30, 'Choose the correct form of the verb:\r\n“She ___ to the market every Sunday.”', 'go', 'goes', 'going', 'gone', 'B', 1, 0, '2025-09-29 18:14:54', '2025-09-29 18:14:54', ''),
+(29, 30, 'What is the plural form of the word child?', 'childs', 'children', 'childes', 'childrens', 'B', 1, 0, '2025-09-29 18:14:54', '2025-09-29 18:14:54', '');
 
 -- --------------------------------------------------------
 
@@ -184,121 +251,45 @@ INSERT INTO `assessment_responses` (`id`, `assessment_id`, `question_id`, `stude
 
 CREATE TABLE `parents` (
   `id` int(11) NOT NULL,
+  `username` varchar(50) NOT NULL,
   `name` varchar(100) NOT NULL,
-  `username` varchar(100) NOT NULL,
   `email` varchar(100) NOT NULL,
-  `student_id` int(11) DEFAULT NULL,
   `password` varchar(255) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `student_id` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `parents`
 --
 
-INSERT INTO `parents` (`id`, `name`, `username`, `email`, `student_id`, `password`, `created_at`, `updated_at`) VALUES
-(1, 'Rubelyn B. Martin', 'parent_1', 'rubelyn@gmail.com', 1, '$2y$10$3vUa9MCpfFEhoqJLNlXEHuEOzon30QirTFCEGh56FV59iz5/G213e', '2025-09-03 13:24:42', '2025-09-03 13:24:42'),
-(2, 'Rowen Q. Martin', 'parent_2', 'owen@gmail.com', 2, '$2y$10$/Bgek4Hv8Gr9OEsRMlxx0e4AUVBMHTDsyFl8q3.MpuDK7kPr6D57G', '2025-09-03 13:27:57', '2025-09-03 13:27:57'),
-(6, 'Cecil M Floress', '', 'cecil@gmail.com', 6, '$2y$10$hJpXsLcB7gjpUWONRKyNVe0KYYyxdFzg43RqFvGY57xhPEZOhSitu', '2025-09-08 05:10:30', '2025-09-10 17:12:53'),
-(7, 'Grace E Doe', 'parent_8', 'grace@gmail.com', 8, '$2y$10$tzJaKmdB/g4XEOJL6wOFDO1i.wjtCqV2mN7NK2NeWhZzUovrjJBmC', '2025-09-15 16:51:06', '2025-09-15 16:51:06');
+INSERT INTO `parents` (`id`, `username`, `name`, `email`, `password`, `student_id`, `created_at`) VALUES
+(1, 'parent1', 'Mr. Dela Cruz', 'parent1@email.com', '.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 2203561, '2025-09-24 06:03:11'),
+(2, 'parent2', 'Mrs. Santos', 'parent2@email.com', '.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 2203562, '2025-09-24 06:03:11'),
+(3, 'parent_5', 'Rubelyn B. Martin', 'ruby@gmail.com', '$2y$10$S78c47l2YDT2xkrUxlpiseHomN7BUop097vpNWsCivcTphplQZ6LO', 5, '2025-09-24 06:08:28'),
+(4, 'parent_6', 'Merlinda P. Cartagenas', 'merlinda@gmail.com', '$2y$10$TpLmghRLJK9voJqjPMSbQ.4vSLIfuXQd.apMs8OYSXFRkGLLcvbJS', 6, '2025-09-29 04:30:55');
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `password_resets`
+-- Table structure for table `questions`
 --
 
-CREATE TABLE `password_resets` (
+CREATE TABLE `questions` (
   `id` int(11) NOT NULL,
-  `email` varchar(100) NOT NULL,
-  `user_type` enum('teacher','student','parent') NOT NULL,
-  `token` varchar(255) NOT NULL,
-  `expires_at` datetime NOT NULL,
-  `used` tinyint(1) DEFAULT 0,
+  `set_id` int(11) NOT NULL,
+  `type` enum('mcq','matching','essay') NOT NULL,
+  `question_text` text NOT NULL,
+  `choices` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`choices`)),
+  `answer_key` text DEFAULT NULL,
+  `points` int(11) DEFAULT 1,
+  `order_index` int(11) DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `code` varchar(10) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `password_resets`
---
-
-INSERT INTO `password_resets` (`id`, `email`, `user_type`, `token`, `expires_at`, `used`, `created_at`, `code`) VALUES
-(16, 'martindarren3561@gmail.com', 'student', 'dd48056c5310055a428c8d6dcd7fce5ee22b1f6d71c85484d92368b8cc52866a', '2025-07-18 15:06:55', 0, '2025-07-18 04:06:55', '040364'),
-(17, 'martindarren3561@gmail.com', 'student', '0364a3a3808ac258569312653baf6d748c51c10264063fdc24e9065e2c025c8c', '2025-07-18 15:09:17', 0, '2025-07-18 04:09:17', '734575'),
-(18, 'martindarren3561@gmail.com', 'student', '7553a42f6b2021fd68beb631236d64602fb1f0136f1a3e5ee50a9676544fb914', '2025-07-18 15:11:15', 0, '2025-07-18 04:11:15', '281463'),
-(19, 'martindarren3561@gmail.com', 'student', 'ef32a9ee31a910d8bb024e5260b3b3023e9c41e05d61cc308a1eb78aa67dc028', '2025-07-18 15:15:28', 0, '2025-07-18 04:15:28', '211788'),
-(20, 'martindarren3561@gmail.com', 'student', '2b9be62ccc8bc02cf96e941b6c5f88a5d5deee5a61a8900e5b9766c147c09364', '2025-09-15 20:03:27', 0, '2025-09-15 17:03:27', '188803'),
-(21, 'martindarren3561@gmail.com', 'student', 'e88a1a24f1597ff1de9b7fa6ee39fd750a05e2135cb4d4b236748cc8e103663a', '2025-09-15 20:05:59', 0, '2025-09-15 17:05:59', '695870'),
-(22, 'martindarren3561@gmail.com', 'student', '3a09f7a5eb0d6a63c87c28a592d702629b6080415b7f81094dd388a169ea3577', '2025-09-15 20:07:47', 0, '2025-09-15 17:07:47', '617847'),
-(23, 'martindarren410@gmail.com', 'student', '33bc48036f22ab97197e5b07074d207169860ed48a0004a660f60550801941d8', '2025-09-15 20:11:00', 0, '2025-09-15 17:11:00', '217938'),
-(24, 'martindarren410@gmail.com', 'student', 'ee9f54e0a92e3664e3770e49dc8d4dc7373b629ad997dea73a779e5186949d29', '2025-09-15 20:15:35', 0, '2025-09-15 17:15:35', '033401');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `practice_tests`
---
-
-CREATE TABLE `practice_tests` (
-  `id` int(11) NOT NULL,
-  `teacher_id` int(11) NOT NULL,
-  `title` varchar(255) NOT NULL,
-  `description` text DEFAULT NULL,
-  `duration_minutes` int(11) NOT NULL DEFAULT 30,
-  `skill_focus` varchar(255) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `practice_test_attempts`
---
-
-CREATE TABLE `practice_test_attempts` (
-  `id` int(11) NOT NULL,
-  `practice_test_id` int(11) NOT NULL,
-  `student_id` int(11) NOT NULL,
-  `started_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `completed_at` timestamp NULL DEFAULT NULL,
-  `score` decimal(5,2) DEFAULT NULL,
-  `total_questions` int(11) NOT NULL,
-  `correct_answers` int(11) NOT NULL DEFAULT 0,
-  `time_spent_minutes` int(11) DEFAULT NULL,
-  `status` enum('in_progress','completed','abandoned') DEFAULT 'in_progress'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `practice_test_questions`
---
-
-CREATE TABLE `practice_test_questions` (
-  `id` int(11) NOT NULL,
-  `practice_test_id` int(11) NOT NULL,
-  `question_id` int(11) NOT NULL,
-  `question_order` int(11) NOT NULL DEFAULT 1,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `practice_test_responses`
---
-
-CREATE TABLE `practice_test_responses` (
-  `id` int(11) NOT NULL,
-  `attempt_id` int(11) NOT NULL,
-  `question_id` int(11) NOT NULL,
-  `student_answer` text DEFAULT NULL,
-  `is_correct` tinyint(1) DEFAULT 0,
-  `time_spent_seconds` int(11) DEFAULT 0,
-  `answered_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `group_id` int(11) DEFAULT NULL,
+  `pair_order` int(11) DEFAULT 0,
+  `left_item` varchar(500) DEFAULT NULL,
+  `right_item` varchar(500) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -316,29 +307,11 @@ CREATE TABLE `question_bank` (
   `question_type` enum('multiple_choice','matching','essay') NOT NULL,
   `question_category` enum('comprehension','practice') DEFAULT 'comprehension',
   `question_text` text NOT NULL,
-  `options_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`options_json`)),
-  `options` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`options`)),
+  `options_json` longtext DEFAULT NULL,
+  `options` longtext DEFAULT NULL,
   `answer` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `question_bank`
---
-
-INSERT INTO `question_bank` (`id`, `teacher_id`, `section_id`, `set_title`, `set_id`, `question_type`, `question_category`, `question_text`, `options_json`, `options`, `answer`, `created_at`) VALUES
-(40, 2, 4, 'Quiz5', NULL, 'multiple_choice', 'comprehension', 'caxfcq', '{\"A\":\"qw\",\"B\":\"er\",\"C\":\"rt\",\"D\":\"ty\"}', NULL, 'C', '2025-09-11 14:38:42'),
-(41, 2, 4, 'Quiz5', NULL, 'multiple_choice', 'comprehension', 'ytudfs', '{\"A\":\"gh\",\"B\":\"jk\",\"C\":\"nm\",\"D\":\"as\"}', NULL, 'C', '2025-09-11 14:38:42'),
-(43, 2, 4, 'Quiz5', NULL, 'matching', 'comprehension', 'Match the items in Column A with the corresponding items in Column B.', '{\"lefts\":[\"qewwqe\",\"wqeewq\",\"vsfds\"],\"rights\":[\"bvvd\",\"wewq\",\"phgdf\"]}', NULL, '{\"qewwqe\":\"wewq\",\"wqeewq\":\"phgdf\",\"vsfds\":\"bvvd\"}', '2025-09-11 14:38:42'),
-(44, 2, 4, 'Quiz5', NULL, 'essay', 'comprehension', 'dsadasdsadsad', '{\"word_limit\":200,\"rubrics\":\"dsdswqewqe\"}', NULL, '', '2025-09-11 14:38:42'),
-(45, 2, 4, 'Quiz6', NULL, 'multiple_choice', 'comprehension', 'dsadas', '{\"A\":\"1\",\"B\":\"2\",\"C\":\"3\",\"D\":\"4\"}', NULL, 'A', '2025-09-15 12:54:29'),
-(47, 2, 4, 'Quiz6', NULL, 'matching', 'comprehension', 'Match the items in Column A with the corresponding items in Column B.', '{\"lefts\":[\"sdsd\",\"dsad\",\"dsad\"],\"rights\":[\"1\",\"2\",\"3\"]}', NULL, '{\"sdsd\":\"3\",\"dsad\":\"1\"}', '2025-09-15 12:54:29'),
-(48, 2, 4, 'Quiz6', NULL, 'essay', 'comprehension', 'dsadsad', '{\"word_limit\":100,\"rubrics\":\"3213213\"}', NULL, '', '2025-09-15 12:54:29'),
-(49, 2, 4, 'Quiz7', NULL, 'matching', 'comprehension', 'Match the items in Column A with the corresponding items in Column B.', '{\"lefts\":[\"32132\",\"3232\"],\"rights\":[\"3213\",\"4324\"]}', NULL, '{\"32132\":\"3213\",\"3232\":\"4324\"}', '2025-09-15 13:05:35'),
-(51, 2, 4, 'dasdas', NULL, 'multiple_choice', 'comprehension', 'ewqewq', '{\"A\":\"1\",\"B\":\"2\",\"C\":\"3\",\"D\":\"4\"}', NULL, 'A', '2025-09-15 16:47:33'),
-(52, 2, 4, 'dasdas', NULL, 'matching', 'comprehension', 'Match the items in Column A with the corresponding items in Column B.', '{\"lefts\":[\"21321\",\"44453\"],\"rights\":[\"ewqe\",\"asddas\"]}', NULL, '{\"21321\":\"asddas\",\"44453\":\"ewqe\"}', '2025-09-15 16:47:33'),
-(53, 2, 4, 'dasdas', NULL, 'essay', 'comprehension', 'ewqewq', '{\"word_limit\":50,\"rubrics\":\"wqeqewq\"}', NULL, '', '2025-09-15 16:47:33'),
-(54, 2, 5, 'wewqe', NULL, 'multiple_choice', 'comprehension', 'ewqewqe', '{\"A\":\"1\",\"B\":\"2\",\"C\":\"3\",\"D\":\"4\"}', NULL, 'A', '2025-09-15 16:48:53');
 
 -- --------------------------------------------------------
 
@@ -364,9 +337,27 @@ CREATE TABLE `question_responses` (
 CREATE TABLE `question_sets` (
   `id` int(11) NOT NULL,
   `teacher_id` int(11) NOT NULL,
-  `title` varchar(255) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `section_id` int(11) NOT NULL,
+  `set_title` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `timer_minutes` int(11) DEFAULT 0,
+  `open_at` datetime DEFAULT NULL,
+  `difficulty` varchar(16) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `question_sets`
+--
+
+INSERT INTO `question_sets` (`id`, `teacher_id`, `section_id`, `set_title`, `description`, `created_at`, `updated_at`, `timer_minutes`, `open_at`, `difficulty`) VALUES
+(26, 5, 1, 'Quiz1', '', '2025-09-29 13:42:08', '2025-09-29 13:42:08', 30, '2025-09-29 21:41:00', 'medium'),
+(27, 5, 1, 'Quiz2', '', '2025-09-29 14:32:43', '2025-09-29 14:32:43', 30, NULL, 'medium'),
+(28, 5, 1, 'Quiz 3', '', '2025-09-29 14:43:34', '2025-09-29 14:43:34', 30, '2025-09-29 22:44:00', 'easy'),
+(29, 5, 2, 'Quiz1', '', '2025-09-29 16:55:12', '2025-09-29 16:55:12', 30, '2025-09-30 00:54:00', 'easy'),
+(30, 5, 1, 'Quiz4', '', '2025-09-29 18:14:54', '2025-09-29 18:14:54', 30, '2025-09-30 02:13:00', 'medium'),
+(31, 5, 1, 'Quiz5', '', '2025-09-29 18:27:39', '2025-09-29 18:27:39', 10, '2025-09-30 02:27:00', 'easy');
 
 -- --------------------------------------------------------
 
@@ -381,27 +372,14 @@ CREATE TABLE `quiz_responses` (
   `set_title` varchar(255) NOT NULL,
   `section_id` int(11) NOT NULL,
   `teacher_id` int(11) NOT NULL,
-  `student_answer` text DEFAULT NULL,
+  `student_answer` text NOT NULL,
   `is_correct` tinyint(1) DEFAULT NULL,
-  `partial_score` int(11) DEFAULT 0,
-  `total_matches` int(11) DEFAULT 0,
-  `submitted_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `partial_score` decimal(5,2) DEFAULT NULL,
+  `total_matches` int(11) DEFAULT NULL,
+  `submitted_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `score` decimal(10,2) DEFAULT 0.00,
+  `max_score` decimal(10,2) DEFAULT 0.00
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `quiz_responses`
---
-
-INSERT INTO `quiz_responses` (`id`, `student_id`, `question_id`, `set_title`, `section_id`, `teacher_id`, `student_answer`, `is_correct`, `partial_score`, `total_matches`, `submitted_at`) VALUES
-(1, 1, 40, 'Quiz5', 4, 2, '0', 1, 0, 0, '2025-09-11 15:03:05'),
-(2, 1, 41, 'Quiz5', 4, 2, '0', 1, 0, 0, '2025-09-11 15:03:05'),
-(4, 1, 43, 'Quiz5', 4, 2, '0', 0, 1, 3, '2025-09-11 15:03:05'),
-(13, 1, 44, 'Quiz5', 4, 2, 'This is a direct test essay answer', 0, 8, 0, '2025-09-15 16:59:45'),
-(14, 1, 45, 'Quiz6', 4, 2, 'A', 1, 0, 0, '2025-09-15 13:06:41'),
-(16, 1, 47, 'Quiz6', 4, 2, '{\"sdsd\":\"1\",\"dsad\":\"3\"}', 0, 0, 2, '2025-09-15 13:06:41'),
-(17, 1, 48, 'Quiz6', 4, 2, 'dasfadfdasf', 0, 8, 0, '2025-09-15 16:59:31'),
-(18, 1, 49, 'Quiz7', 4, 2, '{\"3232\":\"3213\",\"32132\":\"4324\"}', 0, 0, 2, '2025-09-15 16:19:08'),
-(19, 8, 54, 'wewqe', 5, 2, 'A', 1, 0, 0, '2025-09-15 16:52:13');
 
 -- --------------------------------------------------------
 
@@ -422,16 +400,6 @@ CREATE TABLE `quiz_scores` (
   `submitted_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `quiz_scores`
---
-
-INSERT INTO `quiz_scores` (`id`, `student_id`, `set_title`, `section_id`, `teacher_id`, `score`, `total_points`, `total_questions`, `correct_answers`, `submitted_at`) VALUES
-(3, 1, 'Quiz5', 4, 2, 73.33, 15, 4, 11, '2025-09-11 15:03:05'),
-(4, 1, 'Quiz6', 4, 2, 130.77, 13, 4, 17, '2025-09-15 13:06:41'),
-(5, 1, 'Quiz7', 4, 2, 0.00, 2, 1, 0, '2025-09-15 16:19:08'),
-(6, 8, 'wewqe', 5, 2, 100.00, 1, 1, 1, '2025-09-15 16:52:13');
-
 -- --------------------------------------------------------
 
 --
@@ -442,7 +410,7 @@ CREATE TABLE `reading_materials` (
   `id` int(11) NOT NULL,
   `teacher_id` int(11) NOT NULL,
   `title` varchar(255) NOT NULL,
-  `content` longtext NOT NULL,
+  `content` mediumtext NOT NULL,
   `theme_settings` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`theme_settings`)),
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
@@ -453,8 +421,25 @@ CREATE TABLE `reading_materials` (
 --
 
 INSERT INTO `reading_materials` (`id`, `teacher_id`, `title`, `content`, `theme_settings`, `created_at`, `updated_at`) VALUES
-(4, 2, 'Newton’s Laws of Motion', '<p><span style=\"font-family: Arial;\">Sir Isaac Newton’s laws of motion explain the relationship between a physical object and the forces acting upon it. Understanding this information provides us with the basis of modern physics.</span></p><h2 id=\"newtons-first-law-inertia\" style=\"box-sizing: inherit; clear: none; -webkit-font-smoothing: antialiased; margin-bottom: 0.5em; margin-top: 1.5em;\"><span style=\"font-family: Arial;\">Newton’s First Law: Inertia</span></h2><h4 style=\"box-sizing: inherit; clear: none; -webkit-font-smoothing: antialiased; margin-bottom: 0.5em; margin-top: 1.5em;\"><span style=\"font-family: Arial;\">An object at rest remains at rest, and an object in motion remains in motion at constant speed and in a straight line unless acted on by an unbalanced force.</span></h4><p style=\"box-sizing: inherit; line-height: 1.7; margin-bottom: 1em; margin-top: 1em; max-width: 66ch;\"><span style=\"font-family: Arial;\">Newton’s first law states that every object will remain at rest or in uniform motion in a straight line unless compelled to change its state by the action of an external force. This tendency to resist changes in a state of motion is&nbsp;</span><span style=\"box-sizing: inherit; font-family: Arial;\">inertia</span><span style=\"font-family: Arial;\">. If all the external forces cancel each other out, then there is no net force acting on the object.&nbsp; If there is no net force acting on the object, then the object will maintain a constant velocity.</span></p><h3 style=\"box-sizing: inherit; clear: none; -webkit-font-smoothing: antialiased; margin-bottom: 0.5em; margin-top: 1.5em;\"><span style=\"font-family: Arial;\">Examples of inertia involving aerodynamics:</span></h3><ul style=\"box-sizing: inherit; margin-top: 1em; margin-bottom: 1em; padding-left: 1.94em; max-width: 66ch; line-height: 1.7;\"><li style=\"box-sizing: inherit; line-height: 1.5; margin-bottom: 0.5em;\"><span style=\"font-family: Arial;\">The motion of an airplane when a pilot changes the throttle setting of an engine.</span></li><li style=\"box-sizing: inherit; line-height: 1.5; margin-bottom: 0.5em;\"><span style=\"font-family: Arial;\">The motion of a ball falling down through the atmosphere.</span></li><li style=\"box-sizing: inherit; line-height: 1.5; margin-bottom: 0.5em;\"><span style=\"font-family: Arial;\">A model rocket being launched up into the atmosphere.</span></li><li style=\"box-sizing: inherit; line-height: 1.5; margin-bottom: 0px;\"><span style=\"font-family: Arial;\">The motion of a kite when the wind changes.</span></li></ul><h2 id=\"newtons-second-law-force\" style=\"box-sizing: inherit; clear: none; -webkit-font-smoothing: antialiased; margin-bottom: 0.5em; margin-top: 1.5em;\"><span style=\"font-family: Arial;\">Newton’s Second Law: Force</span></h2><h4 style=\"box-sizing: inherit; clear: none; -webkit-font-smoothing: antialiased; margin-bottom: 0.5em; margin-top: 1.5em;\"><span style=\"font-family: Arial;\">The acceleration of an object depends on the mass of the object and the amount of force applied.</span></h4><p style=\"box-sizing: inherit; line-height: 1.7; margin-bottom: 1em; margin-top: 1em; max-width: 66ch;\"><span style=\"font-family: Arial;\">His second law defines a&nbsp;</span><font color=\"#212121\" face=\"Merriweather, Georgia, Cambria, Times New Roman, Times, serif\" style=\"\"><span style=\"font-size: 1.5rem; box-sizing: inherit; font-family: Arial;\">force</span><span style=\"font-family: Arial;\">&nbsp;to be equal to change in&nbsp;</span><span style=\"font-size: 1.5rem; box-sizing: inherit; font-family: Arial;\">momentum</span><span style=\"font-family: Arial;\">&nbsp;(mass times velocity) per change in time.&nbsp;Momentum is defined to be the mass&nbsp;</span><span style=\"font-size: 1.5rem; box-sizing: inherit; font-family: Arial;\">m</span><span style=\"font-family: Arial;\">&nbsp;of an object times its&nbsp;velocity&nbsp;</span><span style=\"font-size: 1.5rem; box-sizing: inherit; font-family: Arial;\">V</span></font><span style=\"font-family: Arial;\">.</span></p><p style=\"box-sizing: inherit; line-height: 1.7; margin-bottom: 1em; margin-top: 1em; max-width: 66ch;\"><span style=\"font-family: Arial;\"><br></span></p><p style=\"box-sizing: inherit; line-height: 1.7; margin-bottom: 1em; margin-top: 1em; max-width: 66ch;\"><span style=\"font-family: Arial;\"><br></span></p><p style=\"box-sizing: inherit; line-height: 1.7; margin-bottom: 1em; margin-top: 1em; max-width: 66ch;\"><span style=\"font-family: Arial;\"><br></span></p><p style=\"box-sizing: inherit; line-height: 1.7; margin-bottom: 1em; margin-top: 1em; max-width: 66ch;\"><span style=\"font-family: Arial;\"><br></span></p><p style=\"box-sizing: inherit; line-height: 1.7; margin-bottom: 1em; margin-top: 1em; max-width: 66ch;\"><span style=\"font-family: Arial;\"><br></span></p>', '{\"bg_color\":\"#ffffff\"}', '2025-09-10 17:11:39', '2025-09-10 17:11:39'),
-(5, 2, 'Panda', '<p style=\"text-align: justify; margin: 0.5em 0px 1em; color: rgb(32, 33, 34); font-family: sans-serif;\">The&nbsp;<b>giant panda</b>&nbsp;(<i><b>Ailuropoda melanoleuca</b></i>), also known as the&nbsp;<b>panda bear</b>&nbsp;or simply&nbsp;<b>panda</b>, is a&nbsp;<a href=\"https://en.wikipedia.org/wiki/Bear\" title=\"Bear\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">bear</a>&nbsp;species&nbsp;<a href=\"https://en.wikipedia.org/wiki/Endemic\" class=\"mw-redirect\" title=\"Endemic\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">endemic</a>&nbsp;to&nbsp;<a href=\"https://en.wikipedia.org/wiki/China\" title=\"China\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">China</a>. It is characterised by its white&nbsp;<a href=\"https://en.wikipedia.org/wiki/Animal_coat\" title=\"Animal coat\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">coat</a>&nbsp;with black patches around the eyes, ears, legs and shoulders. Its body is rotund; adult individuals weigh 100 to 115&nbsp;kg (220 to 254&nbsp;lb) and are typically 1.2 to 1.9&nbsp;m (3&nbsp;ft 11&nbsp;in to 6&nbsp;ft 3&nbsp;in) long. It is&nbsp;<a href=\"https://en.wikipedia.org/wiki/Sexually_dimorphic\" class=\"mw-redirect\" title=\"Sexually dimorphic\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">sexually dimorphic</a>, with males being typically 10 to 20% larger than females. A&nbsp;<a href=\"https://en.wikipedia.org/wiki/Thumb\" title=\"Thumb\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">thumb</a>&nbsp;is visible on its forepaw, which helps in holding&nbsp;<a href=\"https://en.wikipedia.org/wiki/Bamboo\" title=\"Bamboo\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">bamboo</a>&nbsp;in place for feeding. It has large&nbsp;<a href=\"https://en.wikipedia.org/wiki/Molar_teeth\" class=\"mw-redirect\" title=\"Molar teeth\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">molar teeth</a>&nbsp;and expanded&nbsp;<a href=\"https://en.wikipedia.org/wiki/Temporal_fossa\" title=\"Temporal fossa\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">temporal fossa</a>&nbsp;to meet its dietary requirements. It can digest&nbsp;<a href=\"https://en.wikipedia.org/wiki/Starch\" title=\"Starch\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">starch</a>&nbsp;and is mostly&nbsp;<a href=\"https://en.wikipedia.org/wiki/Herbivorous\" class=\"mw-redirect\" title=\"Herbivorous\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">herbivorous</a>&nbsp;with a diet consisting almost entirely of bamboo and&nbsp;<a href=\"https://en.wikipedia.org/wiki/Bamboo_shoot\" title=\"Bamboo shoot\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">bamboo shoots</a>.</p><p style=\"text-align: justify; margin: 0.5em 0px 1em; color: rgb(32, 33, 34); font-family: sans-serif;\">The giant panda lives exclusively in six montane regions in a few Chinese provinces at elevations of up to 3,000&nbsp;m (9,800&nbsp;ft). It is solitary and gathers only in mating seasons. It relies on&nbsp;<a href=\"https://en.wikipedia.org/wiki/Olfactory_communication\" class=\"mw-redirect\" title=\"Olfactory communication\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">olfactory communication</a>&nbsp;to communicate and uses&nbsp;<a href=\"https://en.wikipedia.org/wiki/Scent_mark\" class=\"mw-redirect\" title=\"Scent mark\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">scent marks</a>&nbsp;as chemical cues and on landmarks like rocks or trees. Females rear cubs for an average of 18 to 24 months. The oldest known giant panda was 38 years old.</p><p style=\"text-align: justify; margin: 0.5em 0px 1em; color: rgb(32, 33, 34); font-family: sans-serif;\">As a result of farming,&nbsp;<a href=\"https://en.wikipedia.org/wiki/Deforestation\" title=\"Deforestation\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">deforestation</a>&nbsp;and infrastructural development, the giant panda has been driven out of the lowland areas where it once lived. The Fourth National Survey (2011–2014), published in 2015, estimated that the wild population of giant pandas aged over 1.5 years (i.e. excluding dependent young) had increased to 1,864 individuals; based on this number, and using the available estimated percentage of cubs in the population (9.6%), the&nbsp;<a href=\"https://en.wikipedia.org/wiki/IUCN\" class=\"mw-redirect\" title=\"IUCN\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">IUCN</a>&nbsp;estimated the total number of Pandas to be approximately 2,060.<sup id=\"cite_ref-iucn_1-2\" class=\"reference\" style=\"line-height: 1; unicode-bidi: isolate; text-wrap-mode: nowrap; font-size: 12.8px;\"><a href=\"https://en.wikipedia.org/wiki/Giant_panda#cite_note-iucn-1\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\"><span class=\"cite-bracket\" style=\"pointer-events: none;\">[</span>1<span class=\"cite-bracket\" style=\"pointer-events: none;\">]</span></a></sup><sup id=\"cite_ref-Swaisgood-2018_3-0\" class=\"reference\" style=\"line-height: 1; unicode-bidi: isolate; text-wrap-mode: nowrap; font-size: 12.8px;\"><a href=\"https://en.wikipedia.org/wiki/Giant_panda#cite_note-Swaisgood-2018-3\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\"><span class=\"cite-bracket\" style=\"pointer-events: none;\">[</span>3<span class=\"cite-bracket\" style=\"pointer-events: none;\">]</span></a></sup>&nbsp;Since 2016, it has been listed as&nbsp;<a href=\"https://en.wikipedia.org/wiki/Vulnerable_species\" title=\"Vulnerable species\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">Vulnerable</a>&nbsp;on the&nbsp;<a href=\"https://en.wikipedia.org/wiki/IUCN_Red_List\" title=\"IUCN Red List\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">IUCN Red List</a>. In July 2021, Chinese authorities also classified the giant panda as vulnerable. It is a&nbsp;<a href=\"https://en.wikipedia.org/wiki/Conservation-reliant_species\" title=\"\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">conservation-reliant species</a>. By 2007, the captive population comprised 239 giant pandas in China and another 27 outside the country. It has often served as China\'s&nbsp;<a href=\"https://en.wikipedia.org/wiki/National_symbol\" title=\"National symbol\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">national symbol</a>, appeared on&nbsp;<a href=\"https://en.wikipedia.org/wiki/Chinese_Gold_Panda\" title=\"Chinese Gold Panda\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">Chinese Gold Panda</a>&nbsp;coins since 1982 and as one of the five&nbsp;<a href=\"https://en.wikipedia.org/wiki/Fuwa\" title=\"Fuwa\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">Fuwa</a>&nbsp;mascots of the&nbsp;<a href=\"https://en.wikipedia.org/wiki/2008_Summer_Olympics\" title=\"2008 Summer Olympics\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">2008 Summer Olympics</a>&nbsp;held in&nbsp;<a href=\"https://en.wikipedia.org/wiki/Beijing\" title=\"Beijing\" style=\"color: rgb(51, 102, 204); background-image: none; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; border-radius: 2px; overflow-wrap: break-word;\">Beijing</a>.</p>', '{\"bg_color\":\"#ffffff\"}', '2025-09-14 16:46:03', '2025-09-14 16:46:03');
+(21, 5, 'Lion', '<section id=\"ref325410\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; scroll-margin: 50px; color: rgb(26, 26, 26); font-family: -apple-system, BlinkMacSystemFont, \'Helvetica Neue\', \'Segoe UI\', Roboto, Arial, sans-serif; font-size: 16px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: start; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; white-space: normal; background-color: rgb(255, 255, 255); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;\" data-level=\"1\" data-has-spy=\"true\">\r\n<h2 class=\"h1\" style=\"box-sizing: border-box; margin: 0px 0px 16px; padding: 0px; border: 0px solid; font-size: 28.686px; font-weight: 800; font-family: Georgia, serif; font-style: normal; line-height: 1.2;\">General characteristics</h2>\r\n<div class=\"assemblies multiple medialist slider js-slider position-relative d-inline-flex align-items-center mw-100 initialized\" style=\"box-sizing: border-box; margin: 0px 0px 30px 30px; padding: 0px; border: 0px solid; display: flex; max-width: 300px; position: relative; align-items: center; --floated-module-margin: 0 0 30px 30px; --floated-module-width: 300px; min-width: 280px; clear: right; float: right;\" data-type=\"other\">\r\n<div class=\"slider-container js-slider-container overflow-hidden d-flex rw-slider rw-prev-disabled\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; position: relative; display: flex; overflow: hidden; width: 300px;\">\r\n<div class=\"rw-track d-flex align-items-center\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; overflow-x: scroll; scroll-snap-type: x mandatory; scrollbar-width: none; white-space: nowrap; display: flex; align-items: center; width: 300px;\">\r\n<div class=\"position-relative rw-slide col-100 px-20\" style=\"box-sizing: border-box; margin: 0px; padding: 0px 20px; border: 0px solid; display: inline-block; scroll-snap-align: start; white-space: normal; flex: 0 0 auto; width: 300px; position: relative; vertical-align: top;\">\r\n<figure class=\"md-assembly m-0 mb-md-0 card card-borderless print-false\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: none; --card-background-color: #fff; --card-border-width: 1px; --card-border-color: #f2f2f2; --card-border-color-hover: #ddd; --card-border-radius: 0.5rem; --card-box-shadow: 0 0 8px rgba(0, 0, 0, 0.08); --card-font-size: 1rem; --card-line-height: 1.2; --card-padding-x: 20px; --card-padding-y: 15px; --card-media-horizontal-min-width: 100px; background-color: rgb(255, 255, 255); border-radius: 8px; box-shadow: none; font-size: 16px; line-height: 1.2;\" data-assembly-id=\"159005\" data-asm-type=\"image\">\r\n<div class=\"md-assembly-wrapper card-media\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border-image: none 100% / 1 / 0 stretch; border-radius: inherit; overflow: hidden; border: 1px solid rgb(242, 242, 242);\" data-type=\"image\"><a class=\"gtm-assembly-link position-relative d-flex align-items-center justify-content-center media-overlay-link card-media\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: rgb(20, 89, 157); overflow: hidden; display: flex; position: relative; align-items: center; justify-content: center; border-radius: inherit; cursor: pointer;\" href=\"https://cdn.britannica.com/29/150929-050-547070A1/lion-Kenya-Masai-Mara-National-Reserve.jpg\" data-href=\"/media/1/342664/159005\"><picture style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; width: 258px;\"><source style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\" srcset=\"https://cdn.britannica.com/29/150929-050-547070A1/lion-Kenya-Masai-Mara-National-Reserve.jpg?w=300\" media=\"(min-width: 680px)\"><img style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; display: block; vertical-align: middle; max-width: 100%; height: auto; max-height: 100%; width: 258px;\" src=\"https://cdn.britannica.com/29/150929-050-547070A1/lion-Kenya-Masai-Mara-National-Reserve.jpg?w=300\" alt=\"male lion\" loading=\"eager\" data-width=\"1600\" data-height=\"1085\"></picture>\r\n<div class=\"position-absolute top-10 left-10 assembly-slide-tag rounded-lg\" style=\"box-sizing: border-box; margin: 0px; padding: 5px 8px; border: 0px solid; position: absolute; top: 10px; left: 10px; border-radius: 8px; background-color: rgb(14, 63, 112); color: rgb(255, 255, 255); font-size: 12px; font-weight: bold;\">1 of 2</div>\r\n</a></div>\r\n<figcaption class=\"card-body\" style=\"box-sizing: border-box; margin: 0px; padding: 15px 0px 0px; border: 0px solid; font-size: 16px;\">\r\n<div class=\"md-assembly-caption text-muted font-14 font-serif line-clamp\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; white-space: normal; color: rgb(102, 102, 102); font-family: Georgia, serif; font-size: 14px; -webkit-line-clamp: 3; position: relative;\"><span style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\"><a class=\"gtm-assembly-link md-assembly-title font-weight-bold d-inline font-sans-serif mr-5 media-overlay-link\" style=\"box-sizing: border-box; margin: 0px 5px 0px 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: rgb(20, 89, 157); display: inline; font-family: -apple-system, BlinkMacSystemFont, \'Helvetica Neue\', \'Segoe UI\', Roboto, Arial, sans-serif; font-weight: bold; cursor: pointer;\" href=\"https://cdn.britannica.com/29/150929-050-547070A1/lion-Kenya-Masai-Mara-National-Reserve.jpg\" data-href=\"/media/1/342664/159005\">male lion</a><span style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\">Male lion (<em style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\">Panthera leo</em>) in the Masai Mara National Reserve, Kenya.</span></span></div>\r\n</figcaption>\r\n</figure>\r\n</div>\r\n<div class=\"position-relative rw-slide col-100 px-20\" style=\"box-sizing: border-box; margin: 0px; padding: 0px 20px; border: 0px solid; display: inline-block; scroll-snap-align: start; white-space: normal; flex: 0 0 auto; width: 300px; position: relative; vertical-align: top;\">\r\n<figure class=\"md-assembly m-0 mb-md-0 card card-borderless print-false\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: none; --card-background-color: #fff; --card-border-width: 1px; --card-border-color: #f2f2f2; --card-border-color-hover: #ddd; --card-border-radius: 0.5rem; --card-box-shadow: 0 0 8px rgba(0, 0, 0, 0.08); --card-font-size: 1rem; --card-line-height: 1.2; --card-padding-x: 20px; --card-padding-y: 15px; --card-media-horizontal-min-width: 100px; background-color: rgb(255, 255, 255); border-radius: 8px; box-shadow: none; font-size: 16px; line-height: 1.2;\" data-assembly-id=\"97911\" data-asm-type=\"image\">\r\n<div class=\"md-assembly-wrapper card-media\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border-image: none 100% / 1 / 0 stretch; border-radius: inherit; overflow: hidden; border: 1px solid rgb(242, 242, 242);\" data-type=\"image\"><a class=\"gtm-assembly-link position-relative d-flex align-items-center justify-content-center media-overlay-link card-media\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: rgb(20, 89, 157); overflow: hidden; display: flex; position: relative; align-items: center; justify-content: center; border-radius: inherit; cursor: pointer;\" href=\"https://cdn.britannica.com/70/92770-050-1648428C/Lioness.jpg\" data-href=\"/media/1/342664/97911\"><picture style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; width: 258px;\"><source style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\" srcset=\"https://cdn.britannica.com/70/92770-050-1648428C/Lioness.jpg?w=300\" media=\"(min-width: 680px)\"><img style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; display: block; vertical-align: middle; max-width: 100%; height: auto; max-height: 100%; width: 258px;\" src=\"https://cdn.britannica.com/70/92770-050-1648428C/Lioness.jpg?w=300\" alt=\"lion\" loading=\"eager\" data-width=\"1040\" data-height=\"1600\"></picture>\r\n<div class=\"position-absolute top-10 left-10 assembly-slide-tag rounded-lg\" style=\"box-sizing: border-box; margin: 0px; padding: 5px 8px; border: 0px solid; position: absolute; top: 10px; left: 10px; border-radius: 8px; background-color: rgb(14, 63, 112); color: rgb(255, 255, 255); font-size: 12px; font-weight: bold;\">2 of 2</div>\r\n</a></div>\r\n<figcaption class=\"card-body\" style=\"box-sizing: border-box; margin: 0px; padding: 15px 0px 0px; border: 0px solid; font-size: 16px;\">\r\n<div class=\"md-assembly-caption text-muted font-14 font-serif line-clamp\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; white-space: normal; color: rgb(102, 102, 102); font-family: Georgia, serif; font-size: 14px; -webkit-line-clamp: 3; position: relative;\"><span style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\"><a class=\"gtm-assembly-link md-assembly-title font-weight-bold d-inline font-sans-serif mr-5 media-overlay-link\" style=\"box-sizing: border-box; margin: 0px 5px 0px 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: rgb(20, 89, 157); display: inline; font-family: -apple-system, BlinkMacSystemFont, \'Helvetica Neue\', \'Segoe UI\', Roboto, Arial, sans-serif; font-weight: bold; cursor: pointer;\" href=\"https://cdn.britannica.com/70/92770-050-1648428C/Lioness.jpg\" data-href=\"/media/1/342664/97911\">lion</a><span style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\">Lioness (<em style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\">Panthera leo</em>).</span></span></div>\r\n</figcaption>\r\n</figure>\r\n</div>\r\n</div>\r\n</div>\r\n</div>\r\n<p class=\"topic-paragraph\" style=\"box-sizing: border-box; margin: 0px; padding: 0px 0px 30px; border: 0px solid; font-size: 18px; line-height: 1.6; overflow-wrap: break-word; font-family: Georgia, serif;\">The lion is a well-muscled cat with a long body, large head, and short legs. Size and appearance vary considerably between the sexes. The male&rsquo;s outstanding characteristic is his&nbsp;<span id=\"ref75418\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\"></span>mane, which varies between different individuals and populations. It may be entirely lacking; it may fringe the face; or it may be full and shaggy, covering the back of the head, neck, and shoulders and continuing onto the throat and chest to join a fringe along the belly. In some lions the mane and fringe are very dark, almost black, giving the cat a&nbsp;<a class=\"md-dictionary-link md-dictionary-tt-off eb\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border-width: 0px 0px 2px; border-style: solid solid dotted; border-image: initial; color: rgb(20, 89, 157); text-decoration: underline; border-color: initial initial rgb(20, 89, 157) initial;\" href=\"https://www.britannica.com/dictionary/majestic\" data-term=\"majestic\" data-type=\"EB\">majestic</a>&nbsp;appearance. Manes make males look larger and may serve to intimidate rivals or impress prospective mates. A full-grown male is about 1.8&ndash;2.1 metres (6&ndash;7 feet) long, excluding the 1-metre tail; he stands about 1.2 metres high at the shoulder and weighs 170&ndash;230 kg (370&ndash;500 pounds). The female, or lioness, is smaller, with a body length of 1.5 metres, a shoulder height of 0.9&ndash;1.1 metres, and a weight of 120&ndash;180 kg. The lion&rsquo;s coat is short and varies in colour from buff yellow, orange-brown, or silvery gray to dark brown, with a tuft on the tail tip that is usually darker than the rest of the coat.</p>\r\n</section>\r\n<div class=\"md-sentinel--spy-target\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(26, 26, 26); font-family: -apple-system, BlinkMacSystemFont, \'Helvetica Neue\', \'Segoe UI\', Roboto, Arial, sans-serif; font-size: 16px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: start; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; white-space: normal; background-color: rgb(255, 255, 255); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;\">&nbsp;</div>\r\n<section id=\"ref325411\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; scroll-margin: 50px; color: rgb(26, 26, 26); font-family: -apple-system, BlinkMacSystemFont, \'Helvetica Neue\', \'Segoe UI\', Roboto, Arial, sans-serif; font-size: 16px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: start; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; white-space: normal; background-color: rgb(255, 255, 255); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;\" data-level=\"1\" data-has-spy=\"true\">\r\n<h2 class=\"h1\" style=\"box-sizing: border-box; margin: 0px 0px 16px; padding: 0px; border: 0px solid; font-size: 28.686px; font-weight: 800; font-family: Georgia, serif; font-style: normal; line-height: 1.2;\"><span id=\"ref75419\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\"></span><a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: rgb(20, 89, 157);\" href=\"https://www.britannica.com/science/pride-animal-behavior\">Prides</a></h2>\r\n<div class=\"assemblies\" style=\"box-sizing: border-box; margin: 0px 0px 30px 30px; padding: 0px; border: 0px solid; --floated-module-margin: 0 0 30px 30px; --floated-module-width: 280px; display: flex; min-width: 280px; clear: right; float: right; max-width: 280px;\">\r\n<div class=\"w-100 assembly-container\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; width: 280px;\">\r\n<figure class=\"md-assembly m-0 mb-md-0 card card-borderless print-false\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: none; --card-background-color: #fff; --card-border-width: 1px; --card-border-color: #f2f2f2; --card-border-color-hover: #ddd; --card-border-radius: 0.5rem; --card-box-shadow: 0 0 8px rgba(0, 0, 0, 0.08); --card-font-size: 1rem; --card-line-height: 1.2; --card-padding-x: 20px; --card-padding-y: 15px; --card-media-horizontal-min-width: 100px; background-color: rgb(255, 255, 255); border-radius: 8px; box-shadow: none; font-size: 16px; line-height: 1.2;\" data-assembly-id=\"159007\" data-asm-type=\"image\">\r\n<div class=\"md-assembly-wrapper card-media\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border-image: none 100% / 1 / 0 stretch; border-radius: inherit; overflow: hidden; border: 1px solid rgb(242, 242, 242);\" data-type=\"image\"><a class=\"gtm-assembly-link position-relative d-flex align-items-center justify-content-center media-overlay-link card-media\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: rgb(20, 89, 157); overflow: hidden; display: flex; position: relative; align-items: center; justify-content: center; border-radius: inherit; cursor: pointer;\" href=\"https://cdn.britannica.com/05/75105-050-AE61BF35/Pride-lions.jpg\" data-href=\"/media/1/342664/159007\"><picture style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; width: 278px;\"><source style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\" srcset=\"https://cdn.britannica.com/05/75105-050-AE61BF35/Pride-lions.jpg?w=300\" media=\"(min-width: 680px)\"><img style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; display: block; vertical-align: middle; max-width: 100%; height: auto; max-height: 100%; width: 278px;\" src=\"https://cdn.britannica.com/05/75105-050-AE61BF35/Pride-lions.jpg?w=300\" alt=\"pride of lions\" loading=\"eager\" data-width=\"1600\" data-height=\"926\"></picture></a></div>\r\n<figcaption class=\"card-body\" style=\"box-sizing: border-box; margin: 0px; padding: 15px 0px 0px; border: 0px solid; font-size: 16px;\">\r\n<div class=\"md-assembly-caption text-muted font-14 font-serif line-clamp\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; white-space: normal; color: rgb(102, 102, 102); font-family: Georgia, serif; font-size: 14px; -webkit-line-clamp: 3; position: relative;\"><span style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\"><a class=\"gtm-assembly-link md-assembly-title font-weight-bold d-inline font-sans-serif mr-5 media-overlay-link\" style=\"box-sizing: border-box; margin: 0px 5px 0px 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: rgb(20, 89, 157); display: inline; font-family: -apple-system, BlinkMacSystemFont, \'Helvetica Neue\', \'Segoe UI\', Roboto, Arial, sans-serif; font-weight: bold; cursor: pointer;\" href=\"https://cdn.britannica.com/05/75105-050-AE61BF35/Pride-lions.jpg\" data-href=\"/media/1/342664/159007\">pride of lions</a><span style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\">Pride of lions (<em style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\">Panthera leo</em>).</span></span></div>\r\n</figcaption>\r\n</figure>\r\n</div>\r\n</div>\r\n<p class=\"topic-paragraph\" style=\"box-sizing: border-box; margin: 0px 0px 16px; padding: 0px; border: 0px solid; font-size: 18px; line-height: 1.6; overflow-wrap: break-word; font-family: Georgia, serif;\">Lions are&nbsp;<a class=\"md-dictionary-link md-dictionary-tt-off eb\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border-width: 0px 0px 2px; border-style: solid solid dotted; border-image: initial; color: rgb(20, 89, 157); text-decoration: underline; border-color: initial initial rgb(20, 89, 157) initial;\" href=\"https://www.britannica.com/dictionary/unique\" data-term=\"unique\" data-type=\"EB\">unique</a>&nbsp;among cats in that they live in a group, or pride. The members of a pride typically spend the day in several scattered groups that may unite to hunt or share a meal. A pride consists of several generations of lionesses, some of which are related, a smaller number of breeding males, and their cubs. The group may consist of as few as 4 or as many as 37 members, but about 15 is the average size. Each pride has a well-defined&nbsp;<span id=\"ref75420\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\"></span><a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: underline;\" href=\"https://www.britannica.com/science/territorial-behaviour\" data-show-preview=\"true\">territory</a>&nbsp;consisting of a core area that is strictly defended against intruding lions and a fringe area where some overlap is tolerated. Where prey is abundant, a territory area may be as small as 20 square km (8 square miles), but if game is&nbsp;<a class=\"md-dictionary-link md-dictionary-tt-off eb\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border-width: 0px 0px 2px; border-style: solid solid dotted; border-image: initial; color: rgb(20, 89, 157); text-decoration: underline; border-color: initial initial rgb(20, 89, 157) initial;\" href=\"https://www.britannica.com/dictionary/sparse\" data-term=\"sparse\" data-type=\"EB\">sparse</a>, it may cover up to 400 square km. Some prides have been known to use the same territory for decades, passing the area on between females. Lions proclaim their territory by roaring and by&nbsp;<span id=\"ref75421\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\"></span><a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: underline;\" href=\"https://www.britannica.com/science/scent-mark\">scent marking</a>. Their distinctive roar is generally delivered in the evening before a night&rsquo;s&nbsp;<a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: underline;\" href=\"https://www.britannica.com/sports/hunting-sport\" data-show-preview=\"true\">hunting</a>&nbsp;and again before getting up at dawn. Males also proclaim their presence by urinating on bushes, trees, or simply on the ground, leaving a pungent scent behind.&nbsp;<a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: underline;\" href=\"https://www.britannica.com/science/defecation-physiology\" data-show-preview=\"true\">Defecation</a>&nbsp;and rubbing against bushes leave different scent markings.</p>\r\n<p class=\"topic-paragraph\" style=\"box-sizing: border-box; margin: 0px; padding: 0px 0px 30px; border: 0px solid; font-size: 18px; line-height: 1.6; overflow-wrap: break-word; font-family: Georgia, serif;\">There are a number of competing evolutionary explanations for why lions form groups. Large body size and high&nbsp;<a class=\"md-dictionary-link md-dictionary-tt-off eb\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border-width: 0px 0px 2px; border-style: solid solid dotted; border-image: initial; color: rgb(20, 89, 157); text-decoration: underline; border-color: initial initial rgb(20, 89, 157) initial;\" href=\"https://www.britannica.com/dictionary/density\" data-term=\"density\" data-type=\"EB\">density</a>&nbsp;of their main prey probably make group life more efficient for females in terms of energy expenditure. Groups of females, for example, hunt more effectively and are better able to defend cubs against infanticidal males and their hunting territory against other females. The relative importance of these factors is debated, and it is not clear which was responsible for the establishment of group life and which are secondary benefits.</p>\r\n</section>\r\n<div class=\"md-sentinel--spy-target\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(26, 26, 26); font-family: -apple-system, BlinkMacSystemFont, \'Helvetica Neue\', \'Segoe UI\', Roboto, Arial, sans-serif; font-size: 16px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: start; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; white-space: normal; background-color: rgb(255, 255, 255); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;\">&nbsp;</div>\r\n<section id=\"ref325412\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; scroll-margin: 50px; color: rgb(26, 26, 26); font-family: -apple-system, BlinkMacSystemFont, \'Helvetica Neue\', \'Segoe UI\', Roboto, Arial, sans-serif; font-size: 16px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: start; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; white-space: normal; background-color: rgb(255, 255, 255); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;\" data-level=\"1\" data-has-spy=\"true\">\r\n<h2 class=\"h1\" style=\"box-sizing: border-box; margin: 0px 0px 16px; padding: 0px; border: 0px solid; font-size: 28.686px; font-weight: 800; font-family: Georgia, serif; font-style: normal; line-height: 1.2;\">Hunting</h2>\r\n<div class=\"assemblies\" style=\"box-sizing: border-box; margin: 0px 0px 30px 30px; padding: 0px; border: 0px solid; --floated-module-margin: 0 0 30px 30px; --floated-module-width: 280px; display: flex; min-width: 280px; clear: right; float: right; max-width: 280px;\">\r\n<div class=\"w-100 assembly-container\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; width: 280px;\">\r\n<figure class=\"md-assembly m-0 mb-md-0 card card-borderless print-false\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: none; --card-background-color: #fff; --card-border-width: 1px; --card-border-color: #f2f2f2; --card-border-color-hover: #ddd; --card-border-radius: 0.5rem; --card-box-shadow: 0 0 8px rgba(0, 0, 0, 0.08); --card-font-size: 1rem; --card-line-height: 1.2; --card-padding-x: 20px; --card-padding-y: 15px; --card-media-horizontal-min-width: 100px; background-color: rgb(255, 255, 255); border-radius: 8px; box-shadow: none; font-size: 16px; line-height: 1.2;\" data-assembly-id=\"159006\" data-asm-type=\"image\">\r\n<div class=\"md-assembly-wrapper card-media\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border-image: none 100% / 1 / 0 stretch; border-radius: inherit; overflow: hidden; border: 1px solid rgb(242, 242, 242);\" data-type=\"image\"><a class=\"gtm-assembly-link position-relative d-flex align-items-center justify-content-center media-overlay-link card-media\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: rgb(20, 89, 157); overflow: hidden; display: flex; position: relative; align-items: center; justify-content: center; border-radius: inherit; cursor: pointer;\" href=\"https://cdn.britannica.com/97/92697-050-39C05D91/Lions-warthog.jpg\" data-href=\"/media/1/342664/159006\"><picture style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; width: 278px;\"><source style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\" srcset=\"https://cdn.britannica.com/97/92697-050-39C05D91/Lions-warthog.jpg?w=300\" media=\"(min-width: 680px)\"><img style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; display: block; vertical-align: middle; max-width: 100%; height: auto; max-height: 100%; width: 278px;\" src=\"https://cdn.britannica.com/97/92697-050-39C05D91/Lions-warthog.jpg?w=300\" alt=\"lions chasing a warthog\" loading=\"eager\" data-width=\"1600\" data-height=\"1064\"></picture></a></div>\r\n<figcaption class=\"card-body\" style=\"box-sizing: border-box; margin: 0px; padding: 15px 0px 0px; border: 0px solid; font-size: 16px;\">\r\n<div class=\"md-assembly-caption text-muted font-14 font-serif line-clamp\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; white-space: normal; color: rgb(102, 102, 102); font-family: Georgia, serif; font-size: 14px; -webkit-line-clamp: 3; position: relative;\"><span style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\"><a class=\"gtm-assembly-link md-assembly-title font-weight-bold d-inline font-sans-serif mr-5 media-overlay-link\" style=\"box-sizing: border-box; margin: 0px 5px 0px 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: rgb(20, 89, 157); display: inline; font-family: -apple-system, BlinkMacSystemFont, \'Helvetica Neue\', \'Segoe UI\', Roboto, Arial, sans-serif; font-weight: bold; cursor: pointer;\" href=\"https://cdn.britannica.com/97/92697-050-39C05D91/Lions-warthog.jpg\" data-href=\"/media/1/342664/159006\">lions chasing a warthog</a></span></div>\r\n</figcaption>\r\n</figure>\r\n</div>\r\n</div>\r\n<p class=\"topic-paragraph\" style=\"box-sizing: border-box; margin: 0px 0px 16px; padding: 0px; border: 0px solid; font-size: 18px; line-height: 1.6; overflow-wrap: break-word; font-family: Georgia, serif;\">Lions&nbsp;<span id=\"ref75422\" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid;\"></span><a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: underline;\" href=\"https://www.britannica.com/science/predation\" data-show-preview=\"true\">prey</a>&nbsp;on a large variety of animals ranging in size from&nbsp;<a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: underline;\" href=\"https://www.britannica.com/animal/rodent\" data-show-preview=\"true\">rodents</a>&nbsp;and&nbsp;<a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: underline;\" href=\"https://www.britannica.com/animal/baboon\" data-show-preview=\"true\">baboon</a>s to&nbsp;<a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: underline;\" href=\"https://www.britannica.com/animal/Cape-buffalo\" data-show-preview=\"true\">Cape (or African) buffalo</a>&nbsp;and&nbsp;<a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: underline;\" href=\"https://www.britannica.com/animal/hippopotamus-mammal-species\" data-show-preview=\"true\">hippopotamuses</a>, but they predominantly hunt medium- to large-sized hoofed animals such as wildebeests,&nbsp;<a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: underline;\" href=\"https://www.britannica.com/animal/zebra\" data-show-preview=\"true\">zebras</a>, and&nbsp;<a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: underline;\" href=\"https://www.britannica.com/animal/antelope-mammal\" data-show-preview=\"true\">antelopes</a>. Prey preferences vary geographically as well as between neighbouring prides. Lions are known to take&nbsp;<a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: underline;\" href=\"https://www.britannica.com/animal/elephant-mammal\" data-show-preview=\"true\">elephants</a>&nbsp;and&nbsp;<a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: underline;\" href=\"https://www.britannica.com/animal/giraffe\" data-show-preview=\"true\">giraffes</a>, but only if the individual is young or especially sick. They readily eat any meat they can find, including carrion and fresh kills that they scavenge or forcefully steal from&nbsp;<a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: underline;\" href=\"https://www.britannica.com/animal/hyena\" data-show-preview=\"true\">hyenas</a>,&nbsp;<a class=\"md-crosslink \" style=\"box-sizing: border-box; margin: 0px; padding: 0px; border: 0px solid; color: rgb(20, 89, 157); text-decoration: underline;\" href=\"https://www.britannica.com/animal/cheetah-mammal\" data-show-preview=\"true\">cheetahs</a>, or wild dogs. Lionesses living in open savanna do most of the hunting, whereas males typically appropriate their meals from the female&rsquo;s kills. However, male lions are also adept hunters, and in some areas they hunt frequently. Pride males in scrub or wooded habitat spend less time with the females and hunt most of their own meals. Nomadic males must always secure their own food.</p>\r\n</section>', '{\"bg_color\":\"#ffffff\"}', '2025-09-29 09:23:06', '2025-09-29 09:23:06'),
+(24, 5, 'Adverb', '<ul style=\"box-sizing: border-box; margin-top: 0px; margin-bottom: 1rem; color: rgb(32, 33, 36); font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, \'Noto Sans\', \'Liberation Sans\', sans-serif, \'Apple Color Emoji\', \'Segoe UI Emoji\', \'Segoe UI Symbol\', \'Noto Color Emoji\'; font-size: 16px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: left; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; white-space: normal; text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;\">\r\n<li style=\"box-sizing: border-box; font-size: 18pt;\"><span style=\"box-sizing: border-box; font-size: 18pt;\">An&nbsp;<strong style=\"box-sizing: border-box; font-weight: bold;\">adverb</strong>&nbsp;is a word that modifies or describes a verb (&ldquo;he sings&nbsp;<strong style=\"box-sizing: border-box; font-weight: bold;\">loudly</strong>&rdquo;), an adjective (&ldquo;<strong style=\"box-sizing: border-box; font-weight: bold;\">very</strong>&nbsp;tall&rdquo;), another adverb (&ldquo;ended&nbsp;<strong style=\"box-sizing: border-box; font-weight: bold;\">too</strong>&nbsp;quickly&rdquo;), or even a whole sentence (&ldquo;<strong style=\"box-sizing: border-box; font-weight: bold;\">Fortunately</strong>, I had brought an umbrella.&rdquo;).</span></li>\r\n<li style=\"box-sizing: border-box; font-size: 18pt;\"><span style=\"box-sizing: border-box; font-size: 18pt;\">Adverbs provide additional context, such as how, when, where, to what extent, or how often something happens.</span></li>\r\n<li style=\"box-sizing: border-box; font-size: 18pt;\"><span style=\"box-sizing: border-box; font-size: 18pt;\">Adverbs are categorized into several types based on their function and what they describe:&nbsp;<strong style=\"box-sizing: border-box; font-weight: bold;\">time</strong>,&nbsp;<strong style=\"box-sizing: border-box; font-weight: bold;\">frequency</strong>,&nbsp;<strong style=\"box-sizing: border-box; font-weight: bold;\">duration</strong>,&nbsp;<strong style=\"box-sizing: border-box; font-weight: bold;\">manner</strong>,&nbsp;<strong style=\"box-sizing: border-box; font-weight: bold;\">place</strong>,&nbsp;<strong style=\"box-sizing: border-box; font-weight: bold;\">degree</strong>,&nbsp;<strong style=\"box-sizing: border-box; font-weight: bold;\">purpose</strong>, and&nbsp;<strong style=\"box-sizing: border-box; font-weight: bold;\">conjunctive</strong>&nbsp;<strong style=\"box-sizing: border-box; font-weight: bold;\">adverbs</strong>.</span></li>\r\n<li style=\"box-sizing: border-box; font-size: 18pt;\"><span style=\"box-sizing: border-box; font-size: 18pt;\">Adverbs often end in&nbsp;<em style=\"box-sizing: border-box;\">-ly</em>, but some (such as&nbsp;<em style=\"box-sizing: border-box;\">fast</em>) look the same as their adjective counterparts.</span></li>\r\n<li style=\"box-sizing: border-box; font-size: 18pt;\"><span style=\"box-sizing: border-box; font-size: 18pt;\">Adverbs can show comparison (&ldquo;<strong style=\"box-sizing: border-box; font-weight: bold;\">more quickly</strong>,&rdquo; &ldquo;<strong style=\"box-sizing: border-box; font-weight: bold;\">most quickly</strong>&rdquo;) and should be placed near the words they modify to avoid ambiguity.</span></li>\r\n</ul>', '{\"bg_color\":\"#ffffff\"}', '2025-09-29 17:17:47', '2025-09-29 17:17:47');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `responses`
+--
+
+CREATE TABLE `responses` (
+  `id` int(11) NOT NULL,
+  `question_id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL,
+  `answer` text DEFAULT NULL,
+  `score` decimal(5,2) DEFAULT 0.00,
+  `is_correct` tinyint(1) DEFAULT 0,
+  `submitted_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `graded_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -465,6 +450,7 @@ INSERT INTO `reading_materials` (`id`, `teacher_id`, `title`, `content`, `theme_
 CREATE TABLE `sections` (
   `id` int(11) NOT NULL,
   `name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -472,11 +458,10 @@ CREATE TABLE `sections` (
 -- Dumping data for table `sections`
 --
 
-INSERT INTO `sections` (`id`, `name`, `created_at`) VALUES
-(1, 'Rizal', '2025-09-05 08:34:33'),
-(2, 'Bonifacio', '2025-09-08 03:29:21'),
-(4, 'Mabini', '2025-09-08 04:52:06'),
-(5, 'Aguinaldo', '2025-09-15 16:41:51');
+INSERT INTO `sections` (`id`, `name`, `description`, `created_at`) VALUES
+(1, 'Rizal', NULL, '2025-09-26 17:57:03'),
+(2, 'Bonifacio', NULL, '2025-09-29 04:27:45'),
+(3, 'Mabini', NULL, '2025-09-29 17:43:49');
 
 -- --------------------------------------------------------
 
@@ -486,6 +471,7 @@ INSERT INTO `sections` (`id`, `name`, `created_at`) VALUES
 
 CREATE TABLE `students` (
   `id` int(11) NOT NULL,
+  `student_id` varchar(50) DEFAULT NULL,
   `name` varchar(100) NOT NULL,
   `student_number` varchar(50) NOT NULL,
   `email` varchar(100) NOT NULL,
@@ -500,13 +486,52 @@ CREATE TABLE `students` (
 -- Dumping data for table `students`
 --
 
-INSERT INTO `students` (`id`, `name`, `student_number`, `email`, `gender`, `password`, `section_id`, `created_at`, `updated_at`) VALUES
-(1, 'Darren B. Martin', '2203561', 'martindarren410@gmail.com', 'male', '$2y$10$Ni6UIsG9Gl4H41YupamXDOF5NG6bWal7dg8pxC/RAT6KMtfVhQPDq', 4, '2025-07-18 00:30:31', '2025-09-15 17:10:41'),
-(2, 'Darwin B. Martin', '2204561', 'darwin@gmail.com', 'male', '$2y$10$8Yo7rHy/0SHUsigqH6zDk.fjHQg07OWyqTcSJFfHM.sj4kHgv2mk2', 1, '2025-09-03 13:27:57', '2025-09-09 15:10:40'),
-(4, 'Khein Lelouch C. Eusebio', '123456', 'merlindaborboncomoro@gmail.com', 'male', '$2y$10$h2j2Aq1CcRfWY0mxGjbkx.CwkxWZGq4/.sMyJF4tsYrnwRP9Zq8fS', 1, '2025-09-06 04:10:26', '2025-09-08 04:17:14'),
-(6, 'Josua M Flores', '2203661', 'josua@gmail.com', 'male', '$2y$10$egaDhaADOM7mvUQhwqaRQuFGBbrHgJ4p6sYpw1cXxm0FKsTEvZFHe', 1, '2025-09-08 05:09:48', '2025-09-09 15:10:18'),
-(7, 'Aeris  Ygusquiza', '2202561', 'aerisganda@gmail.com', 'female', '$2y$10$WRmRfPTHg3N65hOewEoP1u8bkgYM0Bpu9e4el.l49DrmIqw6trxMO', 1, '2025-09-09 15:09:35', '2025-09-15 16:42:48'),
-(8, 'John E Doe', '2204771', 'john@outlook.com', 'male', '$2y$10$n7nQMv9cz6uMoLlUQk2.de6kkFzP5dcwCEzbuMK/eeP0SV0cz8ptu', 5, '2025-09-15 16:50:25', '2025-09-15 16:50:25');
+INSERT INTO `students` (`id`, `student_id`, `name`, `student_number`, `email`, `gender`, `password`, `section_id`, `created_at`, `updated_at`) VALUES
+(4, '2203562', 'Maria Santos', '2203562', 'maria@student.com', 'female', '.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 1, '2025-09-24 06:03:02', '2025-09-24 06:03:02'),
+(5, NULL, 'Darren B. Martin', '2203561', 'martindarren3561@gmail.com', 'male', '$2y$10$q20wF23AJrnVSsUD2U7M3.jUy7Jd1TVrueo5d2mDy/gvcnV9uPc16', 1, '2025-09-24 06:07:56', '2025-09-26 18:29:03'),
+(6, NULL, 'Clarisse P. Cartagena', '2203661', 'clarisse@gmail.com', 'female', '$2y$10$4ASkHhDQwBWLiaSioSdAyOVMkuxcdjhLfZFTnIcUcjZqXggUz/6hO', 2, '2025-09-29 04:29:45', '2025-09-29 04:29:45');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `student_responses`
+--
+
+CREATE TABLE `student_responses` (
+  `response_id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL,
+  `question_set_id` int(11) NOT NULL,
+  `question_type` enum('mcq','matching','essay') NOT NULL,
+  `question_id` int(11) NOT NULL,
+  `answer` text DEFAULT NULL,
+  `is_correct` tinyint(1) DEFAULT NULL,
+  `score` decimal(5,2) DEFAULT NULL,
+  `submitted_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `graded_at` timestamp NULL DEFAULT NULL,
+  `graded_by` int(11) DEFAULT NULL,
+  `feedback` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `student_responses`
+--
+
+INSERT INTO `student_responses` (`response_id`, `student_id`, `question_set_id`, `question_type`, `question_id`, `answer`, `is_correct`, `score`, `submitted_at`, `graded_at`, `graded_by`, `feedback`) VALUES
+(32, 5, 26, 'mcq', 20, 'C', 0, 0.00, '2025-09-29 13:42:36', NULL, NULL, NULL),
+(33, 5, 27, 'matching', 7, '[\"Verb\",\"Adjective\",\"Adverb of time\",\"Noun\",\"Adverb\"]', 1, 5.00, '2025-09-29 14:37:02', NULL, NULL, NULL),
+(34, 5, 27, 'matching', 8, '[\"Present Continuous Tense\",\"Simple Future Tense\",\"Simple Past Tense\",\"Simple Present Tense\"]', 1, 4.00, '2025-09-29 14:37:02', NULL, NULL, NULL),
+(35, 5, 27, 'mcq', 21, 'C', 1, 1.00, '2025-09-29 14:37:02', NULL, NULL, NULL),
+(36, 5, 27, 'mcq', 22, 'B', 1, 1.00, '2025-09-29 14:37:02', NULL, NULL, NULL),
+(37, 5, 27, 'mcq', 23, 'B', 1, 1.00, '2025-09-29 14:37:02', NULL, NULL, NULL),
+(38, 5, 27, 'mcq', 24, 'A', 0, 0.00, '2025-09-29 14:37:02', NULL, NULL, NULL),
+(39, 5, 27, 'mcq', 25, 'A', 0, 0.00, '2025-09-29 14:37:02', NULL, NULL, NULL),
+(40, 5, 28, 'matching', 9, '[\"Cherry\",\"Banana\",\"Blueberry\"]', 1, 3.00, '2025-09-29 14:44:18', NULL, NULL, NULL),
+(41, 6, 29, 'mcq', 26, 'B', 1, 1.00, '2025-09-29 17:02:06', NULL, NULL, NULL),
+(42, 5, 30, 'matching', 10, '[\"Verb\",\"Adjective\"]', 1, 2.00, '2025-09-29 18:20:41', NULL, NULL, NULL),
+(43, 5, 30, 'mcq', 27, 'C', 1, 1.00, '2025-09-29 18:20:41', NULL, NULL, NULL),
+(44, 5, 30, 'mcq', 28, 'B', 1, 1.00, '2025-09-29 18:20:41', NULL, NULL, NULL),
+(45, 5, 30, 'mcq', 29, 'B', 1, 1.00, '2025-09-29 18:20:41', NULL, NULL, NULL),
+(46, 5, 31, 'matching', 11, '[\"Cherry\",\"Banana\",\"Blueberry\"]', 1, 2.00, '2025-09-29 18:28:10', NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -529,9 +554,8 @@ CREATE TABLE `teachers` (
 --
 
 INSERT INTO `teachers` (`id`, `name`, `username`, `email`, `password`, `created_at`, `updated_at`) VALUES
-(2, 'Jeffry M. Duria', 'SirJeff', 'jeff@gmail.com', '$2y$10$htkg.h19uoxm/GX2nRQZBueyPHktSQTo1MWkvzy6KDR03uKq7VWh2', '2025-09-05 05:47:36', '2025-09-05 05:47:36'),
-(3, 'Clarisse P. Cartagenas', 'claaa', 'cla@gmail.com', '$2y$10$O7tjjz1j1qWg3IsvROjq0e68IDROFcdeMQpVM4b.MfT8RLC31f.Vq', '2025-09-05 08:32:35', '2025-09-05 08:32:35'),
-(4, 'James G. Huelgas', 'James', 'james@gmail.com', '$2y$10$QCuHECUe2gximtoyeFpTvOBDSAa7NA8FKtGAZ7/dh.9Qtd31eQQ2y', '2025-09-05 08:35:23', '2025-09-05 08:35:23');
+(5, 'Jeffry M. Duria', 'SirJeff', 'jeff@gmail.com', '$2y$10$13RBLbSe.16CKCuSwfpBk.iCDEIKRPo4I8r9cGuiLRtGbzWJX3LSS', '2025-09-28 15:32:53', '2025-09-28 15:32:53'),
+(6, 'John E. Doe', 'JohnDoe', 'john@gmail.com', '$2y$10$PlYFaYgxyqXucrekcUb5iuJxZeN5F3zpDKUHnCrMdWsEifwvUD/ua', '2025-09-29 17:44:28', '2025-09-29 17:44:28');
 
 -- --------------------------------------------------------
 
@@ -551,24 +575,9 @@ CREATE TABLE `teacher_sections` (
 --
 
 INSERT INTO `teacher_sections` (`id`, `teacher_id`, `section_id`, `created_at`) VALUES
-(1, 4, 1, '2025-09-05 08:35:23'),
-(6, 3, 2, '2025-09-09 15:12:59'),
-(8, 2, 5, '2025-09-15 16:45:30'),
-(9, 2, 4, '2025-09-15 16:45:30');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `warmup_responses`
---
-
-CREATE TABLE `warmup_responses` (
-  `id` int(11) NOT NULL,
-  `student_id` int(11) NOT NULL,
-  `question_id` int(11) NOT NULL,
-  `answer` text DEFAULT NULL,
-  `submitted_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+(12, 5, 2, '2025-09-29 04:28:32'),
+(13, 5, 1, '2025-09-29 04:28:32'),
+(14, 6, 3, '2025-09-29 17:44:28');
 
 -- --------------------------------------------------------
 
@@ -580,42 +589,9 @@ CREATE TABLE `warm_ups` (
   `id` int(11) NOT NULL,
   `teacher_id` int(11) NOT NULL,
   `title` varchar(255) NOT NULL,
-  `description` text DEFAULT NULL,
-  `theme_settings` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`theme_settings`)),
-  `related_material_id` int(11) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `warm_ups`
---
-
-INSERT INTO `warm_ups` (`id`, `teacher_id`, `title`, `description`, `theme_settings`, `related_material_id`, `created_at`, `updated_at`) VALUES
-(1, 2, 'DDSADA', 'ASDAS', NULL, NULL, '2025-09-11 16:24:32', '2025-09-11 16:24:32');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `warm_up_questions`
---
-
-CREATE TABLE `warm_up_questions` (
-  `id` int(11) NOT NULL,
-  `warm_up_id` int(11) NOT NULL,
-  `question_type` enum('multiple_choice','matching','essay') NOT NULL,
-  `question_text` text NOT NULL,
-  `options` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`options`)),
-  `answer` text DEFAULT NULL,
+  `content` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `warm_up_questions`
---
-
-INSERT INTO `warm_up_questions` (`id`, `warm_up_id`, `question_type`, `question_text`, `options`, `answer`, `created_at`) VALUES
-(1, 1, 'multiple_choice', 'caxfcq', '{\"A\":\"qw\",\"B\":\"er\",\"C\":\"rt\",\"D\":\"ty\"}', 'C', '2025-09-11 16:24:32');
 
 --
 -- Indexes for dumped tables
@@ -633,8 +609,7 @@ ALTER TABLE `admins`
 -- Indexes for table `announcements`
 --
 ALTER TABLE `announcements`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `teacher_id` (`teacher_id`);
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Indexes for table `assessments`
@@ -650,8 +625,7 @@ ALTER TABLE `assessments`
 ALTER TABLE `assessment_assignments`
   ADD PRIMARY KEY (`id`),
   ADD KEY `assessment_id` (`assessment_id`),
-  ADD KEY `section_id` (`section_id`),
-  ADD KEY `student_id` (`student_id`);
+  ADD KEY `section_id` (`section_id`);
 
 --
 -- Indexes for table `assessment_questions`
@@ -667,8 +641,36 @@ ALTER TABLE `assessment_questions`
 ALTER TABLE `assessment_responses`
   ADD PRIMARY KEY (`id`),
   ADD KEY `assessment_id` (`assessment_id`),
-  ADD KEY `question_id` (`question_id`),
-  ADD KEY `student_id` (`student_id`);
+  ADD KEY `student_id` (`student_id`),
+  ADD KEY `question_id` (`question_id`);
+
+--
+-- Indexes for table `essay_questions`
+--
+ALTER TABLE `essay_questions`
+  ADD PRIMARY KEY (`question_id`),
+  ADD KEY `set_id` (`set_id`);
+
+--
+-- Indexes for table `matching_pairs`
+--
+ALTER TABLE `matching_pairs`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_question_order` (`question_id`,`pair_order`);
+
+--
+-- Indexes for table `matching_questions`
+--
+ALTER TABLE `matching_questions`
+  ADD PRIMARY KEY (`question_id`),
+  ADD KEY `set_id` (`set_id`);
+
+--
+-- Indexes for table `mcq_questions`
+--
+ALTER TABLE `mcq_questions`
+  ADD PRIMARY KEY (`question_id`),
+  ADD KEY `set_id` (`set_id`);
 
 --
 -- Indexes for table `parents`
@@ -676,59 +678,25 @@ ALTER TABLE `assessment_responses`
 ALTER TABLE `parents`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `username` (`username`),
-  ADD UNIQUE KEY `email` (`email`),
-  ADD KEY `student_id` (`student_id`);
+  ADD UNIQUE KEY `email` (`email`);
 
 --
--- Indexes for table `password_resets`
+-- Indexes for table `questions`
 --
-ALTER TABLE `password_resets`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `practice_tests`
---
-ALTER TABLE `practice_tests`
+ALTER TABLE `questions`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_teacher_id` (`teacher_id`),
-  ADD KEY `idx_created_at` (`created_at`);
-
---
--- Indexes for table `practice_test_attempts`
---
-ALTER TABLE `practice_test_attempts`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_practice_test_id` (`practice_test_id`),
-  ADD KEY `idx_student_id` (`student_id`),
-  ADD KEY `idx_status` (`status`),
-  ADD KEY `idx_started_at` (`started_at`);
-
---
--- Indexes for table `practice_test_questions`
---
-ALTER TABLE `practice_test_questions`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_practice_question` (`practice_test_id`,`question_id`),
-  ADD KEY `idx_practice_test_id` (`practice_test_id`),
-  ADD KEY `idx_question_id` (`question_id`),
-  ADD KEY `idx_question_order` (`question_order`);
-
---
--- Indexes for table `practice_test_responses`
---
-ALTER TABLE `practice_test_responses`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_attempt_question` (`attempt_id`,`question_id`),
-  ADD KEY `idx_attempt_id` (`attempt_id`),
-  ADD KEY `idx_question_id` (`question_id`),
-  ADD KEY `idx_is_correct` (`is_correct`);
+  ADD KEY `idx_set_type` (`set_id`,`type`),
+  ADD KEY `idx_order` (`set_id`,`order_index`),
+  ADD KEY `idx_questions_group_id` (`group_id`),
+  ADD KEY `idx_questions_type_group` (`type`,`group_id`);
 
 --
 -- Indexes for table `question_bank`
 --
 ALTER TABLE `question_bank`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `teacher_id` (`teacher_id`);
+  ADD KEY `teacher_id` (`teacher_id`),
+  ADD KEY `section_id` (`section_id`);
 
 --
 -- Indexes for table `question_responses`
@@ -743,15 +711,15 @@ ALTER TABLE `question_responses`
 -- Indexes for table `question_sets`
 --
 ALTER TABLE `question_sets`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `section_id` (`section_id`);
 
 --
 -- Indexes for table `quiz_responses`
 --
 ALTER TABLE `quiz_responses`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `student_id` (`student_id`),
-  ADD KEY `question_id` (`question_id`),
+  ADD UNIQUE KEY `unique_response` (`student_id`,`question_id`,`set_title`,`section_id`),
   ADD KEY `section_id` (`section_id`),
   ADD KEY `teacher_id` (`teacher_id`);
 
@@ -768,15 +736,22 @@ ALTER TABLE `quiz_scores`
 -- Indexes for table `reading_materials`
 --
 ALTER TABLE `reading_materials`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `responses`
+--
+ALTER TABLE `responses`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `teacher_id` (`teacher_id`);
+  ADD UNIQUE KEY `unique_response` (`question_id`,`student_id`),
+  ADD KEY `idx_student` (`student_id`),
+  ADD KEY `idx_question` (`question_id`);
 
 --
 -- Indexes for table `sections`
 --
 ALTER TABLE `sections`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `name` (`name`);
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Indexes for table `students`
@@ -785,7 +760,17 @@ ALTER TABLE `students`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `student_number` (`student_number`),
   ADD UNIQUE KEY `email` (`email`),
+  ADD UNIQUE KEY `student_id` (`student_id`),
   ADD KEY `section_id` (`section_id`);
+
+--
+-- Indexes for table `student_responses`
+--
+ALTER TABLE `student_responses`
+  ADD PRIMARY KEY (`response_id`),
+  ADD KEY `question_set_id` (`question_set_id`),
+  ADD KEY `idx_student_question` (`student_id`,`question_set_id`,`question_type`,`question_id`),
+  ADD KEY `idx_question_type` (`question_type`,`question_id`);
 
 --
 -- Indexes for table `teachers`
@@ -800,31 +785,15 @@ ALTER TABLE `teachers`
 --
 ALTER TABLE `teacher_sections`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_teacher_section` (`teacher_id`,`section_id`),
+  ADD KEY `teacher_id` (`teacher_id`),
   ADD KEY `section_id` (`section_id`);
-
---
--- Indexes for table `warmup_responses`
---
-ALTER TABLE `warmup_responses`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `student_id` (`student_id`),
-  ADD KEY `question_id` (`question_id`);
 
 --
 -- Indexes for table `warm_ups`
 --
 ALTER TABLE `warm_ups`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `teacher_id` (`teacher_id`),
-  ADD KEY `related_material_id` (`related_material_id`);
-
---
--- Indexes for table `warm_up_questions`
---
-ALTER TABLE `warm_up_questions`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `warm_up_id` (`warm_up_id`);
+  ADD KEY `teacher_id` (`teacher_id`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -846,191 +815,207 @@ ALTER TABLE `announcements`
 -- AUTO_INCREMENT for table `assessments`
 --
 ALTER TABLE `assessments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `assessment_assignments`
 --
 ALTER TABLE `assessment_assignments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `assessment_questions`
 --
 ALTER TABLE `assessment_questions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `assessment_responses`
 --
 ALTER TABLE `assessment_responses`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `essay_questions`
+--
+ALTER TABLE `essay_questions`
+  MODIFY `question_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `matching_pairs`
+--
+ALTER TABLE `matching_pairs`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
+
+--
+-- AUTO_INCREMENT for table `matching_questions`
+--
+ALTER TABLE `matching_questions`
+  MODIFY `question_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+
+--
+-- AUTO_INCREMENT for table `mcq_questions`
+--
+ALTER TABLE `mcq_questions`
+  MODIFY `question_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
 
 --
 -- AUTO_INCREMENT for table `parents`
 --
 ALTER TABLE `parents`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
--- AUTO_INCREMENT for table `password_resets`
+-- AUTO_INCREMENT for table `questions`
 --
-ALTER TABLE `password_resets`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
-
---
--- AUTO_INCREMENT for table `practice_tests`
---
-ALTER TABLE `practice_tests`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `practice_test_attempts`
---
-ALTER TABLE `practice_test_attempts`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `practice_test_questions`
---
-ALTER TABLE `practice_test_questions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `practice_test_responses`
---
-ALTER TABLE `practice_test_responses`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `questions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT for table `question_bank`
 --
 ALTER TABLE `question_bank`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=55;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=166;
 
 --
 -- AUTO_INCREMENT for table `question_responses`
 --
 ALTER TABLE `question_responses`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `question_sets`
 --
 ALTER TABLE `question_sets`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
 
 --
 -- AUTO_INCREMENT for table `quiz_responses`
 --
 ALTER TABLE `quiz_responses`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=117;
 
 --
 -- AUTO_INCREMENT for table `quiz_scores`
 --
 ALTER TABLE `quiz_scores`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT for table `reading_materials`
 --
 ALTER TABLE `reading_materials`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
+
+--
+-- AUTO_INCREMENT for table `responses`
+--
+ALTER TABLE `responses`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `sections`
 --
 ALTER TABLE `sections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `students`
 --
 ALTER TABLE `students`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+
+--
+-- AUTO_INCREMENT for table `student_responses`
+--
+ALTER TABLE `student_responses`
+  MODIFY `response_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=47;
 
 --
 -- AUTO_INCREMENT for table `teachers`
 --
 ALTER TABLE `teachers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `teacher_sections`
 --
 ALTER TABLE `teacher_sections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
-
---
--- AUTO_INCREMENT for table `warmup_responses`
---
-ALTER TABLE `warmup_responses`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `warm_ups`
 --
 ALTER TABLE `warm_ups`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
-
---
--- AUTO_INCREMENT for table `warm_up_questions`
---
-ALTER TABLE `warm_up_questions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- Constraints for dumped tables
 --
 
 --
--- Constraints for table `announcements`
---
-ALTER TABLE `announcements`
-  ADD CONSTRAINT `announcements_ibfk_1` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE;
-
---
 -- Constraints for table `assessments`
 --
 ALTER TABLE `assessments`
-  ADD CONSTRAINT `assessments_ibfk_1` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `assessments_ibfk_2` FOREIGN KEY (`related_material_id`) REFERENCES `reading_materials` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `assessments_ibfk_1` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `assessment_assignments`
 --
 ALTER TABLE `assessment_assignments`
   ADD CONSTRAINT `assessment_assignments_ibfk_1` FOREIGN KEY (`assessment_id`) REFERENCES `assessments` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `assessment_assignments_ibfk_2` FOREIGN KEY (`section_id`) REFERENCES `sections` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `assessment_assignments_ibfk_3` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `assessment_assignments_ibfk_2` FOREIGN KEY (`section_id`) REFERENCES `sections` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `assessment_questions`
 --
 ALTER TABLE `assessment_questions`
-  ADD CONSTRAINT `assessment_questions_ibfk_1` FOREIGN KEY (`assessment_id`) REFERENCES `assessments` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `assessment_questions_ibfk_2` FOREIGN KEY (`question_bank_id`) REFERENCES `question_bank` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `assessment_questions_ibfk_1` FOREIGN KEY (`assessment_id`) REFERENCES `assessments` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `assessment_responses`
 --
 ALTER TABLE `assessment_responses`
   ADD CONSTRAINT `assessment_responses_ibfk_1` FOREIGN KEY (`assessment_id`) REFERENCES `assessments` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `assessment_responses_ibfk_2` FOREIGN KEY (`question_id`) REFERENCES `assessment_questions` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `assessment_responses_ibfk_3` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `assessment_responses_ibfk_2` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `assessment_responses_ibfk_3` FOREIGN KEY (`question_id`) REFERENCES `assessment_questions` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `parents`
+-- Constraints for table `essay_questions`
 --
-ALTER TABLE `parents`
-  ADD CONSTRAINT `parents_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE;
+ALTER TABLE `essay_questions`
+  ADD CONSTRAINT `essay_questions_ibfk_1` FOREIGN KEY (`set_id`) REFERENCES `question_sets` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `matching_pairs`
+--
+ALTER TABLE `matching_pairs`
+  ADD CONSTRAINT `matching_pairs_ibfk_1` FOREIGN KEY (`question_id`) REFERENCES `questions` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `matching_questions`
+--
+ALTER TABLE `matching_questions`
+  ADD CONSTRAINT `matching_questions_ibfk_1` FOREIGN KEY (`set_id`) REFERENCES `question_sets` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `mcq_questions`
+--
+ALTER TABLE `mcq_questions`
+  ADD CONSTRAINT `mcq_questions_ibfk_1` FOREIGN KEY (`set_id`) REFERENCES `question_sets` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `questions`
+--
+ALTER TABLE `questions`
+  ADD CONSTRAINT `questions_ibfk_1` FOREIGN KEY (`set_id`) REFERENCES `question_sets` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `question_bank`
 --
 ALTER TABLE `question_bank`
-  ADD CONSTRAINT `question_bank_ibfk_1` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `question_bank_ibfk_1` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `question_bank_ibfk_2` FOREIGN KEY (`section_id`) REFERENCES `sections` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `question_responses`
@@ -1040,13 +1025,18 @@ ALTER TABLE `question_responses`
   ADD CONSTRAINT `question_responses_ibfk_2` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE;
 
 --
+-- Constraints for table `question_sets`
+--
+ALTER TABLE `question_sets`
+  ADD CONSTRAINT `question_sets_ibfk_1` FOREIGN KEY (`section_id`) REFERENCES `sections` (`id`) ON DELETE CASCADE;
+
+--
 -- Constraints for table `quiz_responses`
 --
 ALTER TABLE `quiz_responses`
   ADD CONSTRAINT `quiz_responses_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `quiz_responses_ibfk_2` FOREIGN KEY (`question_id`) REFERENCES `question_bank` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `quiz_responses_ibfk_3` FOREIGN KEY (`section_id`) REFERENCES `sections` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `quiz_responses_ibfk_4` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `quiz_responses_ibfk_2` FOREIGN KEY (`section_id`) REFERENCES `sections` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `quiz_responses_ibfk_3` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `quiz_scores`
@@ -1057,16 +1047,24 @@ ALTER TABLE `quiz_scores`
   ADD CONSTRAINT `quiz_scores_ibfk_3` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `reading_materials`
+-- Constraints for table `responses`
 --
-ALTER TABLE `reading_materials`
-  ADD CONSTRAINT `reading_materials_ibfk_1` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE;
+ALTER TABLE `responses`
+  ADD CONSTRAINT `responses_ibfk_1` FOREIGN KEY (`question_id`) REFERENCES `questions` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `responses_ibfk_2` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `students`
 --
 ALTER TABLE `students`
   ADD CONSTRAINT `students_ibfk_1` FOREIGN KEY (`section_id`) REFERENCES `sections` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `student_responses`
+--
+ALTER TABLE `student_responses`
+  ADD CONSTRAINT `student_responses_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `student_responses_ibfk_2` FOREIGN KEY (`question_set_id`) REFERENCES `question_sets` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `teacher_sections`
@@ -1076,24 +1074,10 @@ ALTER TABLE `teacher_sections`
   ADD CONSTRAINT `teacher_sections_ibfk_2` FOREIGN KEY (`section_id`) REFERENCES `sections` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `warmup_responses`
---
-ALTER TABLE `warmup_responses`
-  ADD CONSTRAINT `warmup_responses_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `warmup_responses_ibfk_2` FOREIGN KEY (`question_id`) REFERENCES `question_bank` (`id`) ON DELETE CASCADE;
-
---
 -- Constraints for table `warm_ups`
 --
 ALTER TABLE `warm_ups`
-  ADD CONSTRAINT `warm_ups_ibfk_1` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `warm_ups_ibfk_2` FOREIGN KEY (`related_material_id`) REFERENCES `reading_materials` (`id`) ON DELETE SET NULL;
-
---
--- Constraints for table `warm_up_questions`
---
-ALTER TABLE `warm_up_questions`
-  ADD CONSTRAINT `warm_up_questions_ibfk_1` FOREIGN KEY (`warm_up_id`) REFERENCES `warm_ups` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `warm_ups_ibfk_1` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

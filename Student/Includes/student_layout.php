@@ -1,10 +1,17 @@
 <?php
-// Get notification count
+// Compute notification count (announcements + new question sets for the student's section)
 $notificationCount = 0;
-$announcements = $conn->query("SELECT COUNT(*) as count FROM announcements");
-if ($announcements && $row = $announcements->fetch_assoc()) {
-    $notificationCount = (int)$row['count'];
-}
+$studentSectionId = (int)($_SESSION['section_id'] ?? ($_SESSION['student_section_id'] ?? 0));
+try {
+    $resA = $conn->query("SELECT COUNT(*) AS c FROM announcements");
+    if ($resA && ($r = $resA->fetch_assoc())) { $notificationCount += (int)$r['c']; }
+} catch (Throwable $e) { /* ignore */ }
+try {
+    if ($studentSectionId > 0) {
+        $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM question_sets WHERE section_id = ?");
+        if ($stmt) { $stmt->bind_param('i', $studentSectionId); $stmt->execute(); $rc = $stmt->get_result()->fetch_assoc(); $notificationCount += (int)($rc['c'] ?? 0); }
+    }
+} catch (Throwable $e) { /* ignore */ }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -15,30 +22,30 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* Cache bust: 2024-01-15 - Header positioning fix */
         :root {
-            /* Grade 6 Student-Friendly Color Palette */
-            --primary: #4CAF50; /* Vibrant Green - Nature & Growth */
-            --primary-dark: #45a049;
-            --secondary: #FF9800; /* Energetic Orange - Creativity & Fun */
-            --accent: #E91E63; /* Playful Pink - Energy & Excitement */
-            --teal: #00BCD4; /* Bright Cyan - Technology & Learning */
-            --success: #8BC34A; /* Fresh Green - Success & Achievement */
-            --warning: #FFC107; /* Sunny Yellow - Attention & Joy */
-            --error: #F44336; /* Alert Red - Important Notices */
-            --purple: #9C27B0; /* Creative Purple - Imagination */
-            --blue: #2196F3; /* Trust Blue - Knowledge & Trust */
-            --bg-primary: #F8F9FA;
-            --bg-secondary: #E3F2FD;
+            /* Clean White Design Color Palette */
+            --primary: #2563eb; /* Professional Blue */
+            --primary-dark: #1d4ed8;
+            --secondary: #64748b; /* Neutral Gray */
+            --accent: #0ea5e9; /* Light Blue */
+            --success: #10b981; /* Success Green */
+            --warning: #f59e0b; /* Warning Orange */
+            --error: #ef4444; /* Error Red */
+            --info: #06b6d4; /* Info Cyan */
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
             --bg-card: #ffffff;
-            --text-primary: #2E3440;
-            --text-secondary: #4A5568;
-            --text-muted: #718096;
-            --border: #E1E8ED;
-            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
-            --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.12);
-            --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.15);
-            --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.18);
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
         }
         * { 
             box-sizing: border-box; 
@@ -49,7 +56,7 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
         body { 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             color: var(--text-primary);
-            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            background: var(--bg-primary);
             display: flex;
             min-height: 100vh;
             line-height: 1.6;
@@ -57,11 +64,11 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
             -moz-osx-font-smoothing: grayscale;
         }
 
-        /* Sidebar - Grade 6 Student Style */
+        /* Sidebar - Clean White Design */
         .sidebar {
             width: 256px;
-            background: linear-gradient(180deg, #4CAF50 0%, #45a049 100%);
-            color: #ffffff;
+            background: var(--bg-card);
+            color: var(--text-primary);
             padding: 0;
             box-shadow: var(--shadow-lg);
             position: fixed;
@@ -71,7 +78,7 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
             overflow-y: auto;
             z-index: 1000;
             transition: all 0.3s ease;
-            border-right: 3px solid var(--secondary);
+            border-right: 1px solid var(--border);
         }
 
         /* Sidebar collapsed state - icon only */
@@ -101,17 +108,16 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
 
         .sidebar-header {
             padding: 16px 24px;
-            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+            border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.3s ease;
             position: relative;
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--bg-card);
             z-index: 1002;
             margin-top: 64px;
             min-height: 64px;
-            backdrop-filter: blur(10px);
         }
 
 
@@ -163,27 +169,26 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
             align-items: center;
             gap: 12px;
             text-decoration: none;
-            color: #ffffff;
+            color: var(--text-primary);
             z-index: 1003;
             position: relative;
         }
 
         .sidebar-logo img {
-            width: 36px;
-            height: 36px;
+            width: 45px;
+            height: 45px;
             border-radius: 8px;
             object-fit: cover;
             display: block;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
         }
 
         .sidebar-logo-text {
             font-size: 18px;
             font-weight: 600;
             margin: 0;
-            color: #ffffff;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            color: var(--text-primary);
         }
 
         .sidebar-logo .icon {
@@ -235,11 +240,11 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
             align-items: center;
             gap: 16px;
             padding: 12px 24px;
-            color: rgba(255, 255, 255, 0.9);
+            color: var(--text-secondary);
             text-decoration: none;
             transition: all 0.3s ease;
-            border-radius: 0 25px 25px 0;
-            margin-right: 8px;
+            border-radius: 8px;
+            margin: 4px 16px;
             font-weight: 500;
             font-size: 15px;
             min-height: 48px;
@@ -248,25 +253,24 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
 
 
         .sidebar-nav a:hover {
-            background: rgba(255, 255, 255, 0.2);
-            color: #ffffff;
-            transform: translateX(4px);
-            box-shadow: var(--shadow-md);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transform: translateX(2px);
+            box-shadow: var(--shadow-sm);
         }
 
         .sidebar-nav a.active {
-            background: var(--secondary);
+            background: var(--primary);
             color: #ffffff;
             font-weight: 600;
-            box-shadow: var(--shadow-lg);
-            border-left: 4px solid var(--accent);
+            box-shadow: var(--shadow-md);
         }
 
         .sidebar-nav .icon {
-            font-size: 22px;
+            font-size: 20px;
             width: 24px;
             text-align: center;
-            color: rgba(255, 255, 255, 0.8);
+            color: var(--text-muted);
         }
 
         .sidebar-nav a.active .icon {
@@ -274,7 +278,7 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
         }
 
         .sidebar-nav a:hover .icon {
-            color: #ffffff;
+            color: var(--text-primary);
         }
 
         /* Main Content */
@@ -283,7 +287,7 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
             display: flex;
             flex-direction: column;
             transition: all 0.3s ease;
-            background: linear-gradient(135deg, #E3F2FD 0%, #F3E5F5 100%);
+            background: var(--bg-primary);
             margin-left: 256px;
         }
 
@@ -291,10 +295,10 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
             margin-left: 72px;
         }
 
-        /* Header - Grade 6 Student Style */
+        /* Header - Clean White Design */
         .header {
-            background: linear-gradient(135deg, var(--blue) 0%, var(--teal) 100%);
-            border-bottom: 3px solid var(--primary);
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
             padding: 8px 16px;
             display: flex;
             justify-content: space-between;
@@ -304,9 +308,22 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
             left: 0;
             right: 0;
             z-index: 1001;
-            color: #ffffff;
-            box-shadow: var(--shadow-lg);
-            height: 64px;
+            color: var(--text-primary);
+            box-shadow: var(--shadow-sm);
+            height: 70px;
+        }
+
+        /* Force header elements to be positioned right after menu button */
+        .header > .menu-button {
+            order: 1;
+        }
+
+        .header > .header-center {
+            order: 2;
+        }
+
+        .header > .header-actions {
+            order: 3;
         }
 
         .header-center {
@@ -315,15 +332,18 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
             gap: 16px;
             flex: 1;
             max-width: 600px;
+            justify-content: flex-start;
+            margin-left: 0 !important;
+            padding-left: 0 !important;
         }
 
-        /* Grade 6 Student Style Menu Button */
+        /* Clean Menu Button */
         .menu-button {
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            color: #ffffff;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
             padding: 8px;
-            border-radius: 50%;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
             font-size: 20px;
@@ -332,19 +352,19 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 8px;
-            box-shadow: var(--shadow-md);
+            margin-right: 16px;
+            box-shadow: var(--shadow-sm);
         }
 
         .menu-button:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: var(--primary);
             color: #ffffff;
             transform: scale(1.05);
-            box-shadow: var(--shadow-lg);
+            box-shadow: var(--shadow-md);
         }
 
         .menu-button:active {
-            background: rgba(255, 255, 255, 0.4);
+            background: var(--primary-dark);
             transform: scale(0.95);
         }
 
@@ -360,9 +380,9 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
             font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 8px;
-            color: #ffffff;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            gap: 12px;
+            color: var(--text-primary);
+            white-space: nowrap;
         }
 
         .section-info {
@@ -371,16 +391,16 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
         }
 
         .section-badge {
-            background: var(--warning);
+            background: var(--primary);
             color: #ffffff;
-            padding: 6px 14px;
+            padding: 8px 16px;
             border-radius: 20px;
             font-size: 13px;
             font-weight: 600;
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            border: 1px solid var(--primary);
             white-space: nowrap;
-            box-shadow: var(--shadow-md);
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            box-shadow: var(--shadow-sm);
+            margin-left: 12px;
         }
 
         .header h1 .emoji {
@@ -394,24 +414,23 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
         }
 
         .chip {
-            background: var(--accent);
-            color: #ffffff;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
             padding: 8px 16px;
             border-radius: 20px;
             font-size: 14px;
             font-weight: 500;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            box-shadow: var(--shadow-md);
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
         }
 
         .notification-icon {
             position: relative;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            color: #ffffff;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
             padding: 8px;
-            border-radius: 50%;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
             font-size: 20px;
@@ -420,14 +439,14 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: var(--shadow-md);
+            box-shadow: var(--shadow-sm);
         }
 
         .notification-icon:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: var(--primary);
             color: #ffffff;
             transform: scale(1.05);
-            box-shadow: var(--shadow-lg);
+            box-shadow: var(--shadow-md);
         }
 
         .notification-badge {
@@ -452,50 +471,49 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
             padding: 10px 18px;
             background: var(--error);
             color: #ffffff;
-            border-radius: 20px;
+            border-radius: 8px;
             transition: all 0.3s ease;
             font-weight: 600;
             font-size: 14px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            box-shadow: var(--shadow-md);
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--error);
+            box-shadow: var(--shadow-sm);
         }
 
         .logout:hover {
-            background: #d32f2f;
+            background: #dc2626;
             transform: scale(1.05);
-            box-shadow: var(--shadow-lg);
+            box-shadow: var(--shadow-md);
         }
 
         /* Content Area */
         .content {
             flex: 1;
             padding: 24px;
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
             width: 100%;
-            background: #ffffff;
+            background: var(--bg-primary);
             margin-top: 80px;
         }
 
-        /* Grade 6 Student Style Scrollbar */
+        /* Clean Scrollbar */
         ::-webkit-scrollbar {
-            width: 10px;
+            width: 8px;
         }
 
         ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 5px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: linear-gradient(180deg, var(--primary) 0%, var(--secondary) 100%);
-            border-radius: 5px;
-            border: 2px solid rgba(255, 255, 255, 0.2);
+            background: var(--border);
+            border-radius: 4px;
+            border: 1px solid var(--bg-secondary);
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(180deg, var(--secondary) 0%, var(--accent) 100%);
+            background: var(--text-muted);
         }
 
         /* Smooth animations for all interactive elements */
@@ -545,13 +563,20 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
                 height: 56px;
             }
 
+            .header-center {
+                margin-left: 0;
+                gap: 8px;
+            }
+
             .header-center h1 {
                 font-size: 18px;
+                gap: 8px;
             }
 
             .section-badge {
                 font-size: 11px;
                 padding: 3px 8px;
+                margin-left: 4px;
             }
 
             .chip {
@@ -584,41 +609,35 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <a href="student_dashboard.php" class="sidebar-logo">
-                <img src="../assets/images/comprelogo.png" alt="CompreLearn Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <img src="../assets/images/comprelogo2.png" alt="CompreLearn Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                 <div style="display: none; align-items: center; gap: 8px;">
-                    <span class="icon">📚</span>
+                    <i class="fas fa-book icon"></i>
                     <span class="sidebar-logo-text">CompreLearn</span>
                 </div>
             </a>
         </div>
         <ul class="sidebar-nav">
             <li><a href="student_dashboard.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'student_dashboard.php' ? 'active' : ''; ?>" data-tooltip="Dashboard">
-                <span class="icon">🏠</span> <span class="nav-text">Dashboard</span>
+                <i class="fas fa-home icon"></i> <span class="nav-text">Dashboard</span>
             </a></li>
             <li><a href="student_materials.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'student_materials.php' ? 'active' : ''; ?>" data-tooltip="Materials">
-                <span class="icon">📗</span> <span class="nav-text">Materials</span>
+                <i class="fas fa-book icon"></i> <span class="nav-text">Materials</span>
             </a></li>
-            <li><a href="student_tests.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'student_tests.php' ? 'active' : ''; ?>" data-tooltip="My Tests">
-                <span class="icon">📝</span> <span class="nav-text">My Tests</span>
+            
+            <li><a href="clean_question_viewer.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'clean_question_viewer.php' ? 'active' : ''; ?>" data-tooltip="Questions">
+                <i class="fas fa-question-circle icon"></i> <span class="nav-text">Questions</span>
             </a></li>
-            <li><a href="student_questions.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'student_questions.php' ? 'active' : ''; ?>" data-tooltip="Questions">
-                <span class="icon">❓</span> <span class="nav-text">Questions</span>
-            </a></li>
-            <li><a href="student_progress.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'student_progress.php' ? 'active' : ''; ?>" data-tooltip="My Progress">
-                <span class="icon">📊</span> <span class="nav-text">My Progress</span>
+            <li><a href="student_analytics.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'student_analytics.php' ? 'active' : ''; ?>" data-tooltip="Analytics">
+                <i class="fas fa-chart-line icon"></i> <span class="nav-text">Analytics</span>
             </a></li>
             <li><a href="student_practice.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'student_practice.php' ? 'active' : ''; ?>" data-tooltip="Practice">
-                <span class="icon">🎯</span> <span class="nav-text">Practice</span>
+                <i class="fas fa-dumbbell icon"></i> <span class="nav-text">Practice</span>
             </a></li>
-            <li><a href="student_reading.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'student_reading.php' ? 'active' : ''; ?>" data-tooltip="Reading Lists">
-                <span class="icon">📚</span> <span class="nav-text">Reading Lists</span>
+            <li><a href="student_announcements.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'student_announcements.php' ? 'active' : ''; ?>" data-tooltip="Announcements">
+                <i class="fas fa-bullhorn icon"></i> <span class="nav-text">Announcements</span>
             </a></li>
-            <li><a href="student_alerts.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'student_alerts.php' ? 'active' : ''; ?>" data-tooltip="Performance Alerts">
-                <span class="icon">⚠️</span> <span class="nav-text">Performance Alerts</span>
-            </a></li>
-            <li><a href="student_notifications.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'student_notifications.php' ? 'active' : ''; ?>" data-tooltip="Notifications">
-                <span class="icon">🔔</span> <span class="nav-text">Notifications</span>
-            </a></li>
+            
+            
         </ul>
     </nav>
 
@@ -628,24 +647,24 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
         <!-- Header -->
         <header class="header">
             <button class="menu-button" id="menuButton" onclick="toggleSidebar()" title="Toggle Sidebar">
-                ☰
+                <i class="fas fa-bars"></i>
             </button>
             <div class="header-center">
-                <h1><span class="emoji">📚</span> Student Portal</h1>
+                <h1><i class="fas fa-graduation-cap"></i> Student Portal</h1>
                 <div class="section-info">
                     <span class="section-badge"><?php echo h($sectionName); ?></span>
                 </div>
             </div>
             
             <div class="header-actions">
-                <span class="chip">Hi, <?php echo h($studentName); ?>! ✨</span>
-                <button class="notification-icon" onclick="window.location.href='student_notifications.php'" title="Notifications">
-                    🔔
+                <span class="chip">Hi, <?php echo h($studentName); ?>!</span>
+                <button class="notification-icon" onclick="openNotifications()" title="Notifications">
+                    <i class="fas fa-bell"></i>
                     <?php if ($notificationCount > 0): ?>
                         <span class="notification-badge"><?php echo $notificationCount; ?></span>
                     <?php endif; ?>
                 </button>
-                <a class="logout" href="?logout=1">Logout</a>
+                <a class="logout" href="?logout=1"><i class="fas fa-sign-out-alt"></i> Logout</a>
             </div>
         </header>
 
@@ -759,6 +778,33 @@ if ($announcements && $row = $announcements->fetch_assoc()) {
                 });
             });
         });
+    </script>
+
+    <!-- Notifications Modal -->
+    <div id="notificationsModal" style="position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:flex-start; justify-content:center; z-index:2000; padding:80px 16px 24px;">
+        <div style="width:min(900px,95vw); background:#fff; border-radius:12px; box-shadow:0 20px 40px rgba(0,0,0,.2); overflow:hidden;">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:#f1f5f9; border-bottom:1px solid #e2e8f0;">
+                <strong><i class="fas fa-bell"></i> Notifications</strong>
+                <button onclick="closeNotifications()" style="border:none; background:#ef4444; color:#fff; width:28px; height:28px; border-radius:9999px; font-weight:700; cursor:pointer">×</button>
+            </div>
+            <div id="notificationsBody" style="max-height:70vh; overflow:auto; padding:16px;">
+                <div style="color:#64748b;">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function openNotifications(){
+        const modal = document.getElementById('notificationsModal');
+        const body = document.getElementById('notificationsBody');
+        modal.style.display = 'flex';
+        body.innerHTML = '<div style="color:#64748b;">Loading...</div>';
+        fetch('../Student/notifications_feed.php',{ credentials: 'same-origin' })
+            .then(r=>r.text())
+            .then(html=>{ body.innerHTML = html; })
+            .catch(()=>{ body.innerHTML = '<div style="color:#ef4444;">Failed to load notifications.</div>'; });
+    }
+    function closeNotifications(){ document.getElementById('notificationsModal').style.display='none'; }
     </script>
 </body>
 </html>

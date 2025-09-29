@@ -107,6 +107,29 @@ function render_teacher_header(string $active, string $teacherName, string $page
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
+        
+        .section-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+            font-size: 13px;
+        }
+        
+        .section-label {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .section-badge {
+            background: linear-gradient(135deg, #34a853, #2e7d32);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 500;
+            box-shadow: 0 1px 3px rgba(52, 168, 83, 0.3);
+        }
         .user-info {
             display: flex;
             align-items: center;
@@ -470,6 +493,14 @@ function render_teacher_header(string $active, string $teacherName, string $page
         <div class="teacher-name">
             Teacher Portal
             <span class="teacher-badge">Educator</span>
+            <?php if (!empty($teacherSections)): ?>
+                <div class="section-info">
+                    <span class="section-label">Sections:</span>
+                    <?php foreach ($teacherSections as $section): ?>
+                        <span class="section-badge"><?= htmlspecialchars($section['section_name'] ?: $section['name']) ?></span>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
     <div class="user-info">
@@ -503,23 +534,15 @@ function render_teacher_header(string $active, string $teacherName, string $page
             <a href="teacher_content.php" class="<?= $active == 'teacher_content.php' ? 'active' : '' ?>" data-tooltip="Content">
                 <span class="icon">📁</span> <span class="nav-text">Content Management</span>
             </a>
-            <a href="teacher_questions.php" class="<?= $active == 'teacher_questions.php' ? 'active' : '' ?>" data-tooltip="Questions">
-                <span class="icon">❓</span> <span class="nav-text">Questions</span>
-            </a>
-            <a href="teacher_assessments.php" class="<?= $active == 'teacher_assessments.php' ? 'active' : '' ?>" data-tooltip="Assessments">
-                <span class="icon">📝</span> <span class="nav-text">Assessments</span>
+            <a href="clean_question_creator.php" class="<?= $active == 'clean_question_creator.php' ? 'active' : '' ?>" data-tooltip="Questions">
+                <span class="icon">❓</span> <span class="nav-text">Questions Management</span>
             </a>
             <a href="teacher_practice_tests.php" class="<?= $active == 'teacher_practice_tests.php' ? 'active' : '' ?>" data-tooltip="Practice Tests">
-                <span class="icon">🔥</span> <span class="nav-text">Practice Sets</span>
+                <span class="icon">🔥</span> <span class="nav-text">Practice Sets Management</span>
             </a>
-            <a href="teacher_schedule.php" class="<?= $active == 'teacher_schedule.php' ? 'active' : '' ?>" data-tooltip="Schedule">
-                <span class="icon">📅</span> <span class="nav-text">Schedule/Assign</span>
-            </a>
-            <a href="teacher_grading.php" class="<?= $active == 'teacher_grading.php' ? 'active' : '' ?>" data-tooltip="Grading">
-                <span class="icon">✅</span> <span class="nav-text">Grading & Responses</span>
-            </a>
-            <a href="teacher_notifications.php" class="<?= $active == 'teacher_notifications.php' ? 'active' : '' ?>" data-tooltip="Notifications">
-                <span class="icon">🔔</span> <span class="nav-text">Notifications</span>
+            
+            <a href="teacher_announcements.php" class="<?= $active == 'teacher_announcements.php' ? 'active' : '' ?>" data-tooltip="Announcements">
+                <span class="icon">📣</span> <span class="nav-text">Announcements Management</span>
             </a>
             <a href="teacher_analytics.php" class="<?= $active == 'teacher_analytics.php' ? 'active' : '' ?>" data-tooltip="Analytics">
                 <span class="icon">📊</span> <span class="nav-text">Analytics</span>
@@ -585,6 +608,9 @@ if (window.history.replaceState) {
     }
 }
 </script>
+
+<!-- SortableJS Library for drag and drop functionality -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
 </body>
 </html>

@@ -1,276 +1,53 @@
 <?php
-require_once 'includes/student_init.php';
+require_once 'Includes/student_init.php';
+require_once 'includes/NewResponseHandler.php';
 
-$pageTitle = 'Practice Materials';
+$responseHandler = new NewResponseHandler($conn);
+$studentId = (int)($_SESSION['student_id'] ?? 0);
+$sectionId = (int)($_SESSION['section_id'] ?? 0);
 
-// Get practice materials from question bank
-$practiceMaterials = [];
-$materialsQuery = $conn->query("
-    SELECT qb.id, qb.question_type, qb.question_text, qb.created_at,
-           t.name as teacher_name
-    FROM question_bank qb
-    JOIN teachers t ON qb.teacher_id = t.id
-    WHERE qb.question_category = 'practice'
-    ORDER BY qb.created_at DESC
-    LIMIT 10
-");
-
-if ($materialsQuery && $materialsQuery->num_rows > 0) {
-    while ($row = $materialsQuery->fetch_assoc()) {
-        $practiceMaterials[] = $row;
-    }
+// Fetch warm-up sets for the student's section: title starts with Warm-Up:
+$sets = [];
+if ($sectionId > 0) {
+    $stmt = $conn->prepare("SELECT id, set_title, created_at FROM question_sets WHERE section_id = ? AND (set_title LIKE 'Warm-Up:%' OR set_title LIKE 'Warm Up:%') ORDER BY created_at DESC");
+    $stmt->bind_param('i', $sectionId);
+    $stmt->execute();
+    $sets = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
 
-// Get student's practice progress from warmup responses
-$practiceProgress = [];
-$progressQuery = $conn->query("
-    SELECT question_id, COUNT(*) as attempts
-    FROM warmup_responses 
-    WHERE student_id = $studentId
-    GROUP BY question_id
-");
-
-if ($progressQuery && $progressQuery->num_rows > 0) {
-    while ($row = $progressQuery->fetch_assoc()) {
-        $practiceProgress[$row['question_id']] = $row;
-    }
-}
-
-$content = '
-<div class="practice-container">
-    <div class="practice-header">
-        <h2>🎯 Additional Practice Materials</h2>
-        <p>Extra exercises to help you master the concepts and improve your skills!</p>
-    </div>
-
-    <div class="practice-grid">';
-
-if (!empty($practiceMaterials)) {
-    foreach ($practiceMaterials as $material) {
-        $progress = isset($practiceProgress[$material['id']]) ? $practiceProgress[$material['id']] : null;
-        $attempts = $progress ? $progress['attempts'] : 0;
-        $isCompleted = $attempts > 0;
-        
-        $content .= '
-        <div class="practice-card ' . ($isCompleted ? 'completed' : '') . '">
-            <div class="practice-icon">
-                ' . ($material['question_type'] === 'multiple_choice' ? '📝' : ($material['question_type'] === 'essay' ? '✏️' : '🔗')) . '
-            </div>
-            <div class="practice-content">
-                <h3>Practice Question #' . $material['id'] . '</h3>
-                <p class="practice-description">' . h(substr($material['question_text'], 0, 150)) . '...</p>
-                <div class="practice-meta">
-                    <span class="practice-type">' . ucfirst(str_replace('_', ' ', $material['question_type'])) . '</span>
-                    <span class="practice-difficulty difficulty-medium">Practice</span>
-                </div>
-                <div class="practice-progress">';
-        
-        if ($progress) {
-            $content .= '
-                    <div class="progress-info">
-                        <span class="progress-label">Attempts: ' . $attempts . '</span>
-                        <span class="attempts">Last practiced: ' . date('M d', strtotime($material['created_at'])) . '</span>
-                    </div>';
-        }
-        
-        $content .= '
-                </div>
-                <div class="practice-actions">
-                    <a href="student_questions.php?id=' . $material['id'] . '" class="btn-practice">
-                        ' . ($isCompleted ? '🔄 Practice Again' : '▶️ Start Practice') . '
-                    </a>';
-        
-        if ($isCompleted) {
-            $content .= '
-                    <span class="completion-badge">✅ Practiced</span>';
-        }
-        
-        $content .= '
-                </div>
-            </div>
-        </div>';
-    }
-} else {
-    $content .= '
-    <div class="no-practice">
-        <div class="no-practice-icon">🎯</div>
-        <h4>No practice materials available</h4>
-        <p>Check back later for additional practice exercises!</p>
-    </div>';
-}
-
-$content .= '
-    </div>
-</div>
-
-<style>
-.practice-container {
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.practice-header {
-    text-align: center;
-    margin-bottom: 2rem;
-}
-
-.practice-header h2 {
-    color: var(--primary);
-    margin-bottom: 0.5rem;
-}
-
-.practice-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 1.5rem;
-}
-
-.practice-card {
-    background: white;
-    border-radius: 16px;
-    padding: 1.5rem;
-    box-shadow: var(--shadow-md);
-    transition: all 0.3s ease;
-    border: 2px solid transparent;
-}
-
-.practice-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-lg);
-}
-
-.practice-card.completed {
-    border-color: var(--success);
-    background: linear-gradient(135deg, #E8F5E8 0%, #ffffff 100%);
-}
-
-.practice-icon {
-    font-size: 3rem;
-    text-align: center;
-    margin-bottom: 1rem;
-}
-
-.practice-content h3 {
-    color: var(--text-primary);
-    margin-bottom: 0.5rem;
-    font-size: 1.3rem;
-}
-
-.practice-description {
-    color: var(--text-secondary);
-    margin-bottom: 1rem;
-    line-height: 1.5;
-}
-
-.practice-meta {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-}
-
-.practice-type {
-    background: var(--primary);
-    color: white;
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
-
-.practice-difficulty {
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
-
-.difficulty-easy {
-    background: var(--success);
-    color: white;
-}
-
-.difficulty-medium {
-    background: var(--warning);
-    color: white;
-}
-
-.difficulty-hard {
-    background: var(--error);
-    color: white;
-}
-
-.practice-progress {
-    margin-bottom: 1rem;
-}
-
-.progress-info {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-}
-
-.practice-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.btn-practice {
-    background: var(--secondary);
-    color: white;
-    padding: 10px 20px;
-    border-radius: 8px;
-    text-decoration: none;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    flex: 1;
-    text-align: center;
-    margin-right: 1rem;
-}
-
-.btn-practice:hover {
-    background: #e68900;
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-.completion-badge {
-    background: var(--success);
-    color: white;
-    padding: 6px 12px;
-    border-radius: 16px;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
-
-.no-practice {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 3rem;
-    color: var(--text-secondary);
-}
-
-.no-practice-icon {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-}
-
-@media (max-width: 768px) {
-    .practice-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .practice-actions {
-        flex-direction: column;
-        gap: 1rem;
-    }
-    
-    .btn-practice {
-        margin-right: 0;
-    }
-}
-</style>';
-
-include 'includes/student_layout.php';
+ob_start();
 ?>
+<style>
+.shell{max-width:1000px;margin:0 auto;padding:20px}
+.header{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 18px;box-shadow:0 6px 16px rgba(0,0,0,.06);margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.card{background:#fff;border:1px solid #eef2f7;border-radius:16px;box-shadow:0 8px 18px rgba(0,0,0,.06);padding:16px}
+.title{font-weight:800;color:#0f172a;margin-bottom:8px}
+.meta{color:#6b7280;font-size:12px;margin-bottom:12px}
+.btn{background:linear-gradient(90deg,#6366f1,#22c55e);color:#fff;border:none;border-radius:9999px;padding:10px 16px;font-weight:800;cursor:pointer}
+.empty{padding:40px;text-align:center;border-radius:12px;border:1px dashed #e5e7eb;background:#fafafa}
+</style>
+<div class="shell">
+  <div class="header">
+    <h1 style="margin:0"><i class="fas fa-bolt"></i> Warm-Up Practice</h1>
+    <p style="margin:4px 0 0;color:#6b7280">Optional practice sets posted by your teacher. No schedule, start anytime.</p>
+  </div>
+  <?php if (empty($sets)): ?>
+    <div class="empty">No practice sets available.</div>
+  <?php else: ?>
+    <div class="grid">
+      <?php foreach($sets as $s): ?>
+        <div class="card">
+          <div class="title"><?php echo htmlspecialchars($s['set_title']); ?></div>
+          <div class="meta">Uploaded: <?php echo date('M j, Y g:ia', strtotime($s['created_at'])); ?></div>
+          <button class="btn" onclick="location.href='clean_question_viewer.php?practice_set_id=<?php echo (int)$s['id']; ?>'">Start Practice</button>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+</div>
+<?php
+$content = ob_get_clean();
+require_once 'Includes/student_layout.php';
+?>
+

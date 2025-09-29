@@ -8,6 +8,14 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Clean up any teacher session data to avoid conflicts
+if (isset($_SESSION['teacher_logged_in'])) {
+    unset($_SESSION['teacher_logged_in']);
+    unset($_SESSION['teacher_id']);
+    unset($_SESSION['teacher_name']);
+    unset($_SESSION['csrf_token']);
+}
+
 // Database connection
 $conn = new mysqli('localhost', 'root', '', 'compre_learn');
 if ($conn->connect_error) {
@@ -24,10 +32,25 @@ if (!isset($_SESSION['student_logged_in']) || !$_SESSION['student_logged_in']) {
 $studentId = (int)($_SESSION['student_id'] ?? 0);
 $studentName = $_SESSION['student_name'] ?? 'Student';
 
+
 // Fetch student details (for section)
 $studentRes = $conn->query("SELECT * FROM students WHERE id = $studentId");
-$student = $studentRes ? $studentRes->fetch_assoc() : null;
+if (!$studentRes) {
+    error_log("Database error: " . $conn->error);
+    $student = null;
+} else {
+    $student = $studentRes->fetch_assoc();
+}
 $studentSectionId = (int)($student['section_id'] ?? 0);
+
+// Always update section_id in session from database
+if ($studentSectionId > 0) {
+    $_SESSION['section_id'] = $studentSectionId;
+} else {
+    // If no section assigned, set to null
+    $_SESSION['section_id'] = null;
+}
+
 
 // Fetch section name
 $sectionName = 'No Section';

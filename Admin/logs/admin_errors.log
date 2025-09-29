@@ -21,3 +21,4 @@
 [2025-09-17 18:40:19] Teacher add failed - duplicate username | Context: {"username":"SirJeff"}
 [2025-09-17 18:44:45] Student add failed - duplicate name | Context: {"name":"Darren B. Martin"}
 [2025-09-17 18:49:31] Parent add failed - duplicate email | Context: {"email":"marilou@gmail.com"}
+[2025-09-24 08:06:49] Teacher add failed - duplicate email | Context: {"email":"sarah@school.com"}

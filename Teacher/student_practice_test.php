@@ -54,18 +54,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     
     // Process each question response
     foreach ($_POST['answers'] as $questionId => $studentAnswer) {
-        // Get correct answer for this question
-        $stmt = $conn->prepare("SELECT correct_answer FROM question_bank WHERE id = ?");
+        // Get question details including type and correct answer
+        $stmt = $conn->prepare("SELECT question_type, answer, options_json FROM question_bank WHERE id = ?");
         $stmt->bind_param("i", $questionId);
         $stmt->execute();
-        $correctAnswer = $stmt->get_result()->fetch_assoc()['correct_answer'];
+        $questionData = $stmt->get_result()->fetch_assoc();
         
-        $isCorrect = (strtolower(trim($studentAnswer)) === strtolower(trim($correctAnswer)));
+        $questionType = $questionData['question_type'];
+        $correctAnswer = $questionData['answer'];
+        $optionsJson = $questionData['options_json'];
+        
+        $isCorrect = false;
+        $processedAnswer = '';
+        
+        if ($questionType === 'matching') {
+            // Handle matching question answers
+            if (is_array($studentAnswer)) {
+                $processedAnswer = json_encode($studentAnswer);
+                
+                // Check if all matches are correct
+                $pairs = json_decode($optionsJson, true);
+                if ($pairs && is_array($pairs)) {
+                    $allCorrect = true;
+                    foreach ($pairs as $index => $pair) {
+                        $studentMatch = $studentAnswer[$index] ?? '';
+                        $correctMatch = $pair['right'] ?? '';
+                        if (strtolower(trim($studentMatch)) !== strtolower(trim($correctMatch))) {
+                            $allCorrect = false;
+                            break;
+                        }
+                    }
+                    $isCorrect = $allCorrect;
+                }
+            }
+        } else {
+            // Handle other question types (multiple choice, essay)
+            $processedAnswer = is_array($studentAnswer) ? json_encode($studentAnswer) : $studentAnswer;
+            $isCorrect = (strtolower(trim($processedAnswer)) === strtolower(trim($correctAnswer)));
+        }
+        
         if ($isCorrect) $correctAnswers++;
         
         // Save response
         $stmt = $conn->prepare("INSERT INTO practice_test_responses (attempt_id, question_id, student_answer, is_correct) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param("iisi", $attemptId, $questionId, $studentAnswer, $isCorrect);
+        $stmt->bind_param("iisi", $attemptId, $questionId, $processedAnswer, $isCorrect);
         $stmt->execute();
     }
     
@@ -280,6 +312,144 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 padding: 20px;
             }
         }
+        
+        /* Matching Question Styles */
+        .matching-container {
+            margin: 16px 0;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .matching-instruction {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #e0e7ff;
+            border-radius: 8px;
+            border-left: 4px solid #6366f1;
+        }
+        
+        .matching-instruction p {
+            margin: 0;
+            color: #374151;
+            font-size: 14px;
+        }
+        
+        .matching-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .matching-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px;
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            transition: all 0.2s ease;
+        }
+        
+        .matching-row:hover {
+            border-color: #6366f1;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+        }
+        
+        .left-item {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .item-number {
+            background: #6366f1;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .item-text {
+            flex: 1;
+        }
+        
+        .right-item {
+            flex: 1;
+            max-width: 300px;
+        }
+        
+        .matching-select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            background: #fff;
+            font-size: 14px;
+            color: #374151;
+            transition: all 0.2s ease;
+        }
+        
+        .matching-select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        
+        .matching-select option {
+            padding: 8px;
+        }
+        
+        /* Multiple Choice Styles */
+        .options-container {
+            margin: 16px 0;
+        }
+        
+        .option-label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            margin: 8px 0;
+            background: #fff;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .option-label:hover {
+            border-color: #6366f1;
+            background: #f8fafc;
+        }
+        
+        .option-label input[type="radio"] {
+            margin: 0;
+            width: 18px;
+            height: 18px;
+            accent-color: #6366f1;
+        }
+        
+        .option-text {
+            flex: 1;
+            font-size: 14px;
+            color: #374151;
+        }
+        
+        .option-label:has(input:checked) {
+            border-color: #6366f1;
+            background: #e0e7ff;
+        }
     </style>
 </head>
 <body>
@@ -332,11 +502,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     <div class="question-item">
                         <div class="question-number"><?php echo $questionNumber; ?></div>
                         <div class="question-text"><?php echo htmlspecialchars($question['question_text']); ?></div>
-                        <input type="text" 
-                               name="answers[<?php echo $question['id']; ?>]" 
-                               class="answer-input" 
-                               placeholder="Enter your answer here..."
-                               onchange="updateProgress()">
+                        
+                        <?php if ($question['question_type'] === 'multiple_choice'): ?>
+                            <?php 
+                            $options = json_decode($question['options_json'], true);
+                            if ($options && is_array($options)):
+                            ?>
+                                <div class="options-container">
+                                    <?php foreach ($options as $key => $value): ?>
+                                        <label class="option-label">
+                                            <input type="radio" 
+                                                   name="answers[<?php echo $question['id']; ?>]" 
+                                                   value="<?php echo htmlspecialchars($key); ?>"
+                                                   onchange="updateProgress()">
+                                            <span class="option-text">
+                                                <strong><?php echo htmlspecialchars($key); ?>.</strong> 
+                                                <?php echo htmlspecialchars($value); ?>
+                                            </span>
+                                        </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                            
+                        <?php elseif ($question['question_type'] === 'matching'): ?>
+                            <?php 
+                            $pairs = json_decode($question['options_json'], true);
+                            if ($pairs && is_array($pairs)):
+                                // Extract left and right items
+                                $leftItems = [];
+                                $rightItems = [];
+                                foreach ($pairs as $pair) {
+                                    if (isset($pair['left']) && isset($pair['right'])) {
+                                        $leftItems[] = $pair['left'];
+                                        $rightItems[] = $pair['right'];
+                                    }
+                                }
+                                // Shuffle the right items for randomization
+                                shuffle($rightItems);
+                            ?>
+                                <div class="matching-container">
+                                    <div class="matching-instruction">
+                                        <p><strong>Instructions:</strong> Match each item in the left column with the corresponding item in the right column.</p>
+                                    </div>
+                                    <div class="matching-grid">
+                                        <?php foreach ($leftItems as $index => $leftItem): ?>
+                                            <div class="matching-row">
+                                                <div class="left-item">
+                                                    <span class="item-number"><?php echo $index + 1; ?>.</span>
+                                                    <span class="item-text"><?php echo htmlspecialchars($leftItem); ?></span>
+                                                </div>
+                                                <div class="right-item">
+                                                    <select name="answers[<?php echo $question['id']; ?>][<?php echo $index; ?>]" 
+                                                            onchange="updateProgress()" 
+                                                            class="matching-select">
+                                                        <option value="">— Choose —</option>
+                                                        <?php foreach ($rightItems as $rightItem): ?>
+                                                            <option value="<?php echo htmlspecialchars($rightItem); ?>">
+                                                                <?php echo htmlspecialchars($rightItem); ?>
+                                                            </option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                            
+                        <?php else: // Essay or other types ?>
+                            <textarea name="answers[<?php echo $question['id']; ?>]" 
+                                      class="answer-input" 
+                                      placeholder="Enter your answer here..."
+                                      onchange="updateProgress()"
+                                      rows="4"></textarea>
+                        <?php endif; ?>
                     </div>
                 <?php 
                 $questionNumber++;

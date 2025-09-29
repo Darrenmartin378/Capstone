@@ -1,139 +1,137 @@
 <?php
 session_start();
 
-// Handle error messages
-$error_message = '';
-if (isset($_GET['error'])) {
-    switch ($_GET['error']) {
-        case '1':
-            $error_message = 'Invalid credentials. Please check your username and password.';
-            break;
-        case '2':
-            $error_message = 'Login error. Please try again.';
-            break;
-        case '3':
-            $error_message = 'Please enter valid credentials.';
-            break;
-        default:
-            $error_message = 'An error occurred. Please try again.';
-    }
-}
-
-// Process login form submission
-if (isset($_POST['login'])) {
-    $username = trim($_POST['username'] ?? '');
+// Handle login processing
+if ($_POST) {
+    $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
     
+    // Basic validation
     if (empty($username) || empty($password)) {
-        header('Location: login.php?error=3');
-        exit();
+        header('Location: ' . $_SERVER['PHP_SELF'] . '?error=empty');
+        exit;
     }
     
-    // Simple admin check first (guaranteed to work)
-    if ($username === 'admin' && $password === 'admin123') {
-        // Set session variables
-        $_SESSION['admin_logged_in'] = true;
-        $_SESSION['admin_id'] = 1;
-        $_SESSION['admin_username'] = 'admin';
-        $_SESSION['admin_name'] = 'System Administrator';
-        
-        // Regenerate session ID for security
-        session_regenerate_id(true);
-        
-        // Redirect to admin dashboard
-        header('Location: Admin/admin_dashboard.php');
-        exit();
+    // Connect to database for real authentication
+    $conn = new mysqli('localhost', 'root', '', 'compre_learn');
+    if ($conn->connect_error) {
+        header('Location: ' . $_SERVER['PHP_SELF'] . '?error=database');
+        exit;
     }
     
-    try {
-        // Database connection
-        $conn = new mysqli("localhost", "root", "", "compre_learn");
-        if ($conn->connect_error) {
-            header('Location: login.php?error=2');
-            exit();
-        }
-        
-        // Check Admin credentials
-        $stmt = $conn->prepare("SELECT id, username, password_hash, full_name FROM admins WHERE username = ? AND is_active = 1");
-        $stmt->bind_param("s", $username);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($admin = $result->fetch_assoc()) {
-            if (password_verify($password, $admin['password_hash'])) {
-                $_SESSION['admin_logged_in'] = true;
-                $_SESSION['admin_id'] = $admin['id'];
-                $_SESSION['admin_username'] = $admin['username'];
-                $_SESSION['admin_name'] = $admin['full_name'];
-                session_regenerate_id(true);
-                header('Location: Admin/admin_dashboard.php');
-                exit();
-            }
-        }
-        
-        // Check Teacher credentials
-        $stmt = $conn->prepare("SELECT id, name, password FROM teachers WHERE username = ?");
-        $stmt->bind_param("s", $username);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($result->num_rows == 1) {
-            $teacher = $result->fetch_assoc();
-            if (password_verify($password, $teacher['password'])) {
-                $_SESSION['teacher_logged_in'] = true;
-                $_SESSION['teacher_id'] = $teacher['id'];
-                $_SESSION['teacher_name'] = $teacher['name'];
-                session_regenerate_id(true);
-                header("Location: Teacher/teacher_dashboard.php");
-                exit();
-            }
-        }
-        
-        // Check Student credentials
-        $stmt = $conn->prepare("SELECT * FROM students WHERE student_number = ?");
-        $stmt->bind_param("s", $username);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($result->num_rows > 0) {
-            $row = $result->fetch_assoc();
-            if (password_verify($password, $row['password'])) {
-                $_SESSION['student_logged_in'] = true;
-                $_SESSION['student_id'] = $row['id'];
-                $_SESSION['student_name'] = $row['name'];
-                session_regenerate_id(true);
-                header('Location: Student/student_dashboard.php');
-                exit();
-            }
-        }
-        
-        // Check Parent credentials
-        $stmt = $conn->prepare("SELECT * FROM parents WHERE username = ?");
-        $stmt->bind_param("s", $username);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($result->num_rows > 0) {
-            $row = $result->fetch_assoc();
-            if (password_verify($password, $row['password'])) {
-                $_SESSION['parent_logged_in'] = true;
-                $_SESSION['parent_id'] = $row['id'];
-                $_SESSION['parent_name'] = $row['name'];
-                $_SESSION['parent_username'] = $row['username'];
-                session_regenerate_id(true);
-                header('Location: parent_dashboard.php');
-                exit();
-            }
-        }
-        
-        // If authentication failed for all user types
-        header('Location: login.php?error=1');
-        exit();
-        
-    } catch (Exception $e) {
-        header('Location: login.php?error=2');
-        exit();
+    // Check if user exists in any of the user tables
+    $user = null;
+    $user_type = null;
+    
+    // Check admins table
+    $stmt = $conn->prepare("SELECT id, password_hash FROM admins WHERE username = ? OR email = ?");
+    $stmt->bind_param('ss', $username, $username);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result->num_rows > 0) {
+        $user = $result->fetch_assoc();
+        $user_type = 'admin';
     }
+    
+    // Check teachers table if not found in admins
+    if (!$user) {
+        $stmt = $conn->prepare("SELECT id, password FROM teachers WHERE username = ? OR email = ?");
+        $stmt->bind_param('ss', $username, $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows > 0) {
+            $user = $result->fetch_assoc();
+            $user_type = 'teacher';
+        }
+    }
+    
+    // Check students table if not found in teachers
+    if (!$user) {
+        $stmt = $conn->prepare("SELECT id, password FROM students WHERE student_number = ? OR email = ?");
+        $stmt->bind_param('ss', $username, $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows > 0) {
+            $user = $result->fetch_assoc();
+            $user_type = 'student';
+        }
+    }
+    
+    // Check parents table if not found in students
+    if (!$user) {
+        $stmt = $conn->prepare("SELECT id, password FROM parents WHERE username = ? OR email = ?");
+        $stmt->bind_param('ss', $username, $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows > 0) {
+            $user = $result->fetch_assoc();
+            $user_type = 'parent';
+        }
+    }
+    
+    if ($user) {
+        // Verify password (assuming it's hashed in database)
+        // For admins, use password_hash; for others, use password
+        $password_column = ($user_type === 'admin') ? 'password_hash' : 'password';
+        if (password_verify($password, $user[$password_column])) {
+            $_SESSION['username'] = $username;
+            $_SESSION['user_type'] = $user_type;
+            $_SESSION['user_id'] = $user['id'];
+            
+            // Set specific session variables for each user type
+            switch ($user_type) {
+                case 'admin':
+                    $_SESSION['admin_logged_in'] = true;
+                    $_SESSION['admin_id'] = $user['id'];
+                    $_SESSION['admin_name'] = $username;
+                    break;
+                case 'teacher':
+                    $_SESSION['teacher_logged_in'] = true;
+                    $_SESSION['teacher_id'] = $user['id'];
+                    $_SESSION['teacher_name'] = $username;
+                    break;
+                case 'student':
+                    $_SESSION['student_logged_in'] = true;
+                    $_SESSION['student_id'] = $user['id'];
+                    $_SESSION['student_name'] = $username;
+                    break;
+                case 'parent':
+                    $_SESSION['parent_logged_in'] = true;
+                    $_SESSION['parent_id'] = $user['id'];
+                    $_SESSION['parent_name'] = $username;
+                    break;
+            }
+        
+            // Redirect based on user type
+            switch ($user_type) {
+                case 'admin':
+                    header('Location: Admin/admin_dashboard.php?login=success');
+                    break;
+                case 'teacher':
+                    header('Location: Teacher/teacher_dashboard.php?login=success');
+                    break;
+                case 'student':
+                    header('Location: Student/student_dashboard.php?login=success');
+                    break;
+                case 'parent':
+                    header('Location: parent_dashboard.php?login=success');
+                    break;
+                default:
+                    header('Location: ' . $_SERVER['PHP_SELF'] . '?error=invalid');
+            }
+            exit;
+        } else {
+            // Password doesn't match
+            header('Location: ' . $_SERVER['PHP_SELF'] . '?error=invalid');
+            exit;
+        }
+    } else {
+        // User not found
+        header('Location: ' . $_SERVER['PHP_SELF'] . '?error=invalid');
+        exit;
+    }
+    
+    $conn->close();
 }
 ?>
 <!DOCTYPE html>
@@ -141,8 +139,7 @@ if (isset($_POST['login'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Compre Learn - Smart Login</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>CompreLearn - Login</title>
     <style>
         * {
             margin: 0;
@@ -151,193 +148,84 @@ if (isset($_POST['login'])) {
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #8B4513 0%, #A0522D 25%, #CD853F 50%, #DEB887 75%, #F5DEB3 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            position: relative;
             overflow: hidden;
         }
 
-        /* Books background pattern */
-        body::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: 
-                /* Book spines with different colors */
-                linear-gradient(90deg, 
-                    transparent 0%, transparent 2%, 
-                    #654321 2%, #654321 4%, transparent 4%, transparent 6%, 
-                    #8B4513 6%, #8B4513 8%, transparent 8%, transparent 10%, 
-                    #A0522D 10%, #A0522D 12%, transparent 12%, transparent 14%, 
-                    #CD853F 14%, #CD853F 16%, transparent 16%, transparent 18%, 
-                    #8B4513 18%, #8B4513 20%, transparent 20%, transparent 22%, 
-                    #654321 22%, #654321 24%, transparent 24%, transparent 26%, 
-                    #A0522D 26%, #A0522D 28%, transparent 28%, transparent 30%, 
-                    #CD853F 30%, #CD853F 32%, transparent 32%, transparent 34%, 
-                    #8B4513 34%, #8B4513 36%, transparent 36%, transparent 38%, 
-                    #654321 38%, #654321 40%, transparent 40%, transparent 42%, 
-                    #A0522D 42%, #A0522D 44%, transparent 44%, transparent 46%, 
-                    #CD853F 46%, #CD853F 48%, transparent 48%, transparent 50%, 
-                    #8B4513 50%, #8B4513 52%, transparent 52%, transparent 54%, 
-                    #654321 54%, #654321 56%, transparent 56%, transparent 58%, 
-                    #A0522D 58%, #A0522D 60%, transparent 60%, transparent 62%, 
-                    #CD853F 62%, #CD853F 64%, transparent 64%, transparent 66%, 
-                    #8B4513 66%, #8B4513 68%, transparent 68%, transparent 70%, 
-                    #654321 70%, #654321 72%, transparent 72%, transparent 74%, 
-                    #A0522D 74%, #A0522D 76%, transparent 76%, transparent 78%, 
-                    #CD853F 78%, #CD853F 80%, transparent 80%, transparent 82%, 
-                    #8B4513 82%, #8B4513 84%, transparent 84%, transparent 86%, 
-                    #654321 86%, #654321 88%, transparent 88%, transparent 90%, 
-                    #A0522D 90%, #A0522D 92%, transparent 92%, transparent 94%, 
-                    #CD853F 94%, #CD853F 96%, transparent 96%, transparent 98%, 
-                    #8B4513 98%, #8B4513 100%, transparent 100%
-                );
-            background-size: 200px 100px;
-            opacity: 0.4;
-            z-index: 0;
-        }
-
-        /* Bookshelf lines */
-        body::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: 
-                /* Horizontal shelf lines */
-                linear-gradient(0deg, transparent 0%, transparent 48%, rgba(139, 69, 19, 0.3) 49%, rgba(139, 69, 19, 0.3) 51%, transparent 52%, transparent 100%),
-                linear-gradient(0deg, transparent 0%, transparent 48%, rgba(139, 69, 19, 0.3) 49%, rgba(139, 69, 19, 0.3) 51%, transparent 52%, transparent 100%);
-            background-size: 100% 100px;
-            background-position: 0 0, 0 50px;
-            z-index: 0;
-        }
-
-        /* Logo and header */
-        .header {
-            position: absolute;
-            top: 30px;
-            left: 30px;
-            display: flex;
-            align-items: center;
-            z-index: 10;
-        }
-
-        .logo {
-            width: 50px;
-            height: 50px;
+        /* Left Section - Illustration */
+        .illustration-section {
+            flex: 1.5;
+            background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+            position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 12px;
+            overflow: hidden;
         }
 
-        .logo img {
+        .login-illustration {
             width: 100%;
             height: 100%;
-            object-fit: contain;
-            filter: brightness(0) saturate(100%) invert(20%) sepia(8%) saturate(2000%) hue-rotate(200deg) brightness(95%) contrast(90%);
+            object-fit: cover;
+            object-position: center;
         }
 
-        /* Fallback if logo doesn't load */
-        .logo::before {
-            content: 'C';
-            color: #2d3748;
-            font-size: 24px;
-            font-weight: bold;
-            display: none;
-        }
-
-        .logo img:not([src]) + .logo::before,
-        .logo:not(:has(img))::before {
-            display: block;
-        }
-
-        .brand-name {
-            color: #2d3748;
-            font-size: 24px;
-            font-weight: 600;
+        /* Right Section - Login Form */
+        .login-section {
+            flex: 1;
+            background: linear-gradient(135deg, #8B5CF6,rgb(98, 93, 107));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            min-width: 400px;
         }
 
         .login-container {
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(20px);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 
-                0 20px 40px rgba(0, 0, 0, 0.1),
-                0 0 0 1px rgba(255, 255, 255, 0.2);
-            padding: 50px 40px;
-            max-width: 450px;
+            padding: 40px;
             width: 100%;
-            position: relative;
-            z-index: 1;
-            animation: slideUp 0.8s ease-out;
+            max-width: 400px;
         }
 
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(50px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .login-header {
+        .logo {
             text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .login-icon {
-            width: 50px;
-            height: 50px;
-            background: #2d3748;
-            border-radius: 12px;
-            margin: 0 auto 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .login-icon::before {
-            content: '\f19d';
-            font-family: "Font Awesome 6 Free";
-            font-weight: 900;
-            color: white;
-            font-size: 20px;
-        }
-
-        .login-header h1 {
-            color: #2d3748;
-            font-size: 1.8rem;
-            font-weight: 600;
-            margin-bottom: 12px;
-        }
-
-        .login-header p {
-            color: #718096;
-            font-size: 1rem;
-            font-weight: 400;
-            line-height: 1.5;
-        }
-
-
-        .login-form {
             margin-bottom: 30px;
+        }
+
+        .logo-image {
+            max-width: 200px;
+            height: auto;
+            filter: brightness(0) invert(1);
+        }
+
+        .welcome-text {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .welcome-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .welcome-subtitle {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .error-message {
+            background: rgba(220, 38, 38, 0.2);
+            color: #FCA5A5;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            text-align: center;
+            border: 1px solid rgba(220, 38, 38, 0.3);
         }
 
         .form-group {
@@ -345,389 +233,224 @@ if (isset($_POST['login'])) {
             position: relative;
         }
 
-        .form-group input {
+        .form-input {
             width: 100%;
-            padding: 16px 20px 16px 50px;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
+            padding: 15px 20px 15px 50px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 10px;
+            color: white;
             font-size: 16px;
-            background: #f7fafc;
-            color: #2d3748;
-            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .form-input:focus {
             outline: none;
+            background: rgba(255, 255, 255, 0.3);
         }
 
-        .form-group input::placeholder {
-            color: #a0aec0;
-        }
-
-        .form-group input:focus {
-            border-color: #4299e1;
-            background: white;
-            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
-        }
-
-        .form-group .input-icon {
+        .input-icon {
             position: absolute;
-            left: 16px;
+            left: 15px;
             top: 50%;
             transform: translateY(-50%);
-            color: #a0aec0;
+            color: rgba(255, 255, 255, 0.7);
             font-size: 18px;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .username-icon {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%23ffffff' viewBox='0 0 24 24'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
+            background-size: 18px 18px;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .password-icon {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%23ffffff' viewBox='0 0 24 24'%3E%3Cpath d='M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM15.1 8H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z'/%3E%3C/svg%3E");
+            background-size: 18px 18px;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .form-input {
+            position: relative;
+            z-index: 1;
         }
 
         .password-toggle {
             position: absolute;
-            right: 16px;
+            right: 15px;
             top: 50%;
             transform: translateY(-50%);
-            background: none;
-            border: none;
+            width: 20px;
+            height: 20px;
             cursor: pointer;
-            color: #a0aec0;
-            font-size: 18px;
-            transition: all 0.3s ease;
-            padding: 5px;
+            z-index: 10;
+            background-image: url('assets/images/hide.png');
+            background-size: 18px 18px;
+            background-repeat: no-repeat;
+            background-position: center;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
         }
 
         .password-toggle:hover {
-            color: #4299e1;
+            opacity: 1;
         }
 
-        .login-btn {
-            width: 100%;
-            padding: 16px;
-            background: #2d3748;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(45, 55, 72, 0.2);
-        }
-
-        .login-btn:hover {
-            background: #1a202c;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(45, 55, 72, 0.3);
-        }
-
-        .login-btn:active {
-            transform: translateY(0);
-        }
-
-        .error-message {
-            background: rgba(245, 101, 101, 0.1);
-            border: 1px solid rgba(245, 101, 101, 0.2);
-            color: #e53e3e;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
+        .password-toggle.show {
+            background-image: url('assets/images/show.png');
         }
 
         .forgot-password {
             text-align: right;
-            margin-top: 15px;
+            margin-bottom: 30px;
         }
 
         .forgot-password a {
-            color: #718096;
+            color: white;
             text-decoration: none;
             font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s ease;
+            opacity: 0.8;
         }
 
         .forgot-password a:hover {
-            color: #4299e1;
+            opacity: 1;
         }
 
-
-        /* Loading state */
-        .loading {
-            opacity: 0.7;
-            pointer-events: none;
+        .login-button {
+            width: 100%;
+            padding: 15px;
+            background: #4C1D95;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s ease;
         }
 
-        .loading .login-btn {
-            background: #cbd5e0;
-            cursor: not-allowed;
+        .login-button:hover {
+            background: #5B21B6;
         }
 
         /* Responsive Design */
         @media (max-width: 768px) {
-            .header {
-                top: 20px;
-                left: 20px;
+            body {
+                flex-direction: column;
             }
-
-            .login-container {
-                padding: 40px 30px;
-                margin: 10px;
+            
+            .illustration-section {
+                flex: 0.5;
             }
-
-            .login-header h1 {
-                font-size: 1.6rem;
+            
+            .login-section {
+                flex: 0.5;
+                min-width: auto;
             }
-
-            .form-group input {
-                padding: 14px 18px 14px 45px;
-                font-size: 16px;
-            }
-
-            .login-btn {
-                padding: 14px;
-                font-size: 16px;
-            }
-
         }
 
         @media (max-width: 480px) {
-            .header {
-                top: 15px;
-                left: 15px;
-            }
-
-            .logo {
-                width: 40px;
-                height: 40px;
-            }
-
-            .brand-name {
-                font-size: 20px;
-            }
-
             .login-container {
-                padding: 30px 20px;
+                padding: 20px;
             }
-
-            .login-header h1 {
-                font-size: 1.4rem;
-            }
-
-        }
-
-        /* Success animation */
-        .success-animation {
-            animation: successPulse 0.6s ease-out;
-        }
-
-        @keyframes successPulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
         }
     </style>
-    <!-- Font Awesome CDN -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-</head>
-<body>
-    <!-- Header with Logo -->
-    <div class="header">
-        <div class="logo">
-            <img src="assets/images/comprelogo.png" alt="CompreLearn Logo">
-        </div>
-        <div class="brand-name">CompreLearn</div>
-    </div>
-
-    <div class="login-container">
-        <div class="login-header">
-            <div class="login-icon"></div>
-            <h1>Welcome to CompreLearn</h1>
-            <p>Access your CompreLearn account to continue your educational journey</p>
-        </div>
-        
-        <?php if ($error_message): ?>
-            <div class="error-message">
-                <?php echo htmlspecialchars($error_message); ?>
-            </div>
-        <?php endif; ?>
-        
-        <form method="POST" action="" class="login-form" id="loginForm">
-            <div class="form-group">
-                <i class="fas fa-envelope input-icon"></i>
-                <input type="text" name="username" placeholder="Username or Student Number" required>
-            </div>
-            <div class="form-group">
-                <i class="fas fa-lock input-icon"></i>
-                <input type="password" name="password" placeholder="Password" required id="passwordInput">
-                <button type="button" class="password-toggle" onclick="togglePassword()"><i class="fas fa-eye"></i></button>
-            </div>
-            <div class="forgot-password">
-                <a href="#" onclick="showForgotPassword()">Forgot password?</a>
-            </div>
-            <button type="submit" name="login" class="login-btn" id="loginBtn">
-                <span id="btnText">Get Started</span>
-            </button>
-        </form>
-    </div>
-
     <script>
-        // Add loading state to form submission
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            const form = this;
-            const submitBtn = document.getElementById('loginBtn');
-            const btnText = document.getElementById('btnText');
-            
-            // Add loading state but don't disable the button
-            form.classList.add('loading');
-            btnText.textContent = 'Signing in...';
-            
-            // Add success animation after a short delay
-            setTimeout(() => {
-                form.classList.add('success-animation');
-            }, 100);
-        });
-        
-        // Password toggle functionality
         function togglePassword() {
-            const passwordInput = document.getElementById('passwordInput');
-            const toggleBtn = document.querySelector('.password-toggle i');
+            const passwordField = document.getElementById('password');
+            const toggleIcon = document.getElementById('toggleIcon');
             
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                toggleBtn.className = 'fas fa-eye-slash';
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                toggleIcon.classList.add('show');
             } else {
-                passwordInput.type = 'password';
-                toggleBtn.className = 'fas fa-eye';
+                passwordField.type = 'password';
+                toggleIcon.classList.remove('show');
             }
         }
-        
-        function showForgotPassword() {
-            // Show a modal with options for different user types
-            const modal = document.createElement('div');
-            modal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0,0,0,0.5);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 1000;
-            `;
-            
-            modal.innerHTML = `
-                <div style="
-                    background: white;
-                    padding: 30px;
-                    border-radius: 15px;
-                    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-                    max-width: 400px;
-                    width: 90%;
-                    text-align: center;
-                ">
-                    <h3 style="margin: 0 0 20px 0; color: #2d3748; font-size: 18px;">Reset Password</h3>
-                    <p style="margin: 0 0 20px 0; color: #718096; font-size: 14px;">
-                        Choose your account type to reset your password:
-                    </p>
-                    <div style="display: flex; flex-direction: column; gap: 10px;">
-                        <button onclick="resetPassword('admin')" style="
-                            background: #1a73e8;
-                            color: white;
-                            border: none;
-                            padding: 12px 20px;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            font-weight: 500;
-                        ">Admin Account</button>
-                        <button onclick="resetPassword('teacher')" style="
-                            background: #34a853;
-                            color: white;
-                            border: none;
-                            padding: 12px 20px;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            font-weight: 500;
-                        ">Teacher Account</button>
-                        <button onclick="resetPassword('student')" style="
-                            background: #ea4335;
-                            color: white;
-                            border: none;
-                            padding: 12px 20px;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            font-weight: 500;
-                        ">Student Account</button>
-                        <button onclick="resetPassword('parent')" style="
-                            background: #fbbc04;
-                            color: white;
-                            border: none;
-                            padding: 12px 20px;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            font-weight: 500;
-                        ">Parent Account</button>
-                    </div>
-                    <button onclick="closeModal()" style="
-                        background: #6c757d;
-                        color: white;
-                        border: none;
-                        padding: 10px 20px;
-                        border-radius: 8px;
-                        cursor: pointer;
-                        margin-top: 15px;
-                        font-weight: 500;
-                    ">Cancel</button>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-            
-            window.closeModal = function() {
-                document.body.removeChild(modal);
-            };
-            
-            window.resetPassword = function(type) {
-                document.body.removeChild(modal);
-                // For now, show contact info - in a real system, this would redirect to reset pages
-                alert(`To reset your ${type} password, please contact your system administrator.\n\nFor immediate assistance, please reach out to your IT support team.`);
-            };
-        }
-        
-        // Add smooth animations on load
-        document.addEventListener('DOMContentLoaded', function() {
-            // Add staggered animation to form elements
-            const formElements = document.querySelectorAll('.form-group, .login-btn, .user-types');
-            formElements.forEach((element, index) => {
-                element.style.animationDelay = `${index * 0.1}s`;
-                element.classList.add('slideUp');
-            });
-        });
-        
-        // Add focus effects to form inputs
-        document.querySelectorAll('.form-group input').forEach(input => {
-            input.addEventListener('focus', function() {
-                this.parentElement.style.transform = 'translateY(-2px)';
-            });
-            
-            input.addEventListener('blur', function() {
-                this.parentElement.style.transform = 'translateY(0)';
-            });
-        });
-        
-        // Add hover effects to user type cards
-        document.querySelectorAll('.user-type').forEach(card => {
-            card.addEventListener('mouseenter', function() {
-                this.style.background = 'rgba(255, 255, 255, 0.15)';
-            });
-            
-            card.addEventListener('mouseleave', function() {
-                this.style.background = 'rgba(255, 255, 255, 0.05)';
-            });
-        });
     </script>
+</head>
+<body>
+    <!-- Left Section - Illustration -->
+    <div class="illustration-section">
+        <img src="assets/images/login.jpg" alt="CompreLearn Illustration" class="login-illustration">
+    </div>
+
+    <!-- Right Section - Login Form -->
+    <div class="login-section">
+        <div class="login-container">
+            <div class="logo">
+                <img src="assets/images/comprelogo2.png" alt="CompreLearn Logo" class="logo-image">
+            </div>
+            
+            <div class="welcome-text">
+                <div class="welcome-title">Welcome Back</div>
+                <div class="welcome-subtitle">Sign in to access your account</div>
+            </div>
+            
+            <?php
+            // Display error messages
+            if (isset($_GET['error'])) {
+                $error_message = '';
+                switch ($_GET['error']) {
+                    case 'empty':
+                        $error_message = 'Please fill in all fields.';
+                        break;
+                    case 'invalid':
+                        $error_message = 'Invalid username or password.';
+                        break;
+                    case 'database':
+                        $error_message = 'Database connection error. Please try again.';
+                        break;
+                    default:
+                        $error_message = 'An error occurred. Please try again.';
+                }
+                echo '<div class="error-message">' . htmlspecialchars($error_message) . '</div>';
+            }
+            ?>
+            
+            <form action="" method="POST">
+                <div class="form-group">
+                    <span class="input-icon">
+                        <!-- User SVG Icon -->
+                        <svg width="20" height="20" fill="white" viewBox="0 0 24 24">
+                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                        </svg>
+                    </span>
+                    <input type="text" name="username" class="form-input" placeholder="Username or Student No." required>
+                </div>
+                
+                <div class="form-group">
+                    <span class="input-icon">
+                        <!-- Lock SVG Icon -->
+                        <svg width="20" height="20" fill="white" viewBox="0 0 24 24">
+                            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM15.1 8H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/>
+                        </svg>
+                    </span>
+                    <input type="password" name="password" id="password" class="form-input" placeholder="Password" required>
+                    <span class="password-toggle" onclick="togglePassword()" id="toggleIcon"></span>
+                </div>
+                
+                <div class="forgot-password">
+                    <a href="forgot_password.php">Forgot Password?</a>
+                </div>
+                
+                <button type="submit" class="login-button">Sign In</button>
+            </form>
+        </div>
+    </div>
 </body>
 </html>

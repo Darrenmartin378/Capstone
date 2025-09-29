@@ -1,6 +1,13 @@
 <?php
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
+// Only enable error display if not already suppressed and not in AJAX request
+if (!ini_get('display_errors') && !isset($_POST['action'])) {
+    ini_set('display_errors', 1);
+    error_reporting(E_ALL);
+} else {
+    // For AJAX requests, suppress error display to prevent HTML output
+    ini_set('display_errors', 0);
+    error_reporting(E_ALL);
+}
 session_start();
 
 // Logout support
@@ -13,6 +20,14 @@ if (isset($_GET['logout'])) {
 
 // Auth guard: pages under Teacher/ require auth
 if (!isset($_SESSION['teacher_logged_in']) || !$_SESSION['teacher_logged_in']) {
+    // If this is an AJAX action request, return JSON instead of HTML redirect
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+        if (!headers_sent()) {
+            header('Content-Type: application/json');
+        }
+        echo json_encode(['success' => false, 'error' => 'Not authenticated. Please log in again.']);
+        exit();
+    }
     header('Location: ../login.php');
     exit();
 }
@@ -45,21 +60,14 @@ if (empty($_SESSION['csrf_token'])) {
 // Database connection
 $conn = new mysqli('localhost', 'root', '', 'compre_learn');
 if ($conn->connect_error) {
-    die('DB connection failed: ' . $conn->connect_error);
+    error_log('DB connection failed: ' . $conn->connect_error);
+    if (!headers_sent()) {
+        header('Location: ../login.php?error=db_connection');
+    }
+    exit;
 }
 
-// Ensure core tables exist (safe to run each request)
-$conn->query("CREATE TABLE IF NOT EXISTS question_sets (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    teacher_id INT NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-$colCheck = $conn->query("SHOW COLUMNS FROM question_bank LIKE 'set_id'");
-if ($colCheck && $colCheck->num_rows === 0) {
-    $conn->query("ALTER TABLE question_bank ADD COLUMN set_id INT NULL AFTER teacher_id");
-}
+// Note: Core tables are now managed by the new modular system
 
 $conn->query("CREATE TABLE IF NOT EXISTS reading_materials (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -71,45 +79,7 @@ $conn->query("CREATE TABLE IF NOT EXISTS reading_materials (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-$conn->query("CREATE TABLE IF NOT EXISTS question_bank (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    teacher_id INT NOT NULL,
-    section_id INT NULL,
-    set_id INT NULL,
-    question_type ENUM('multiple_choice','matching','essay') NOT NULL,
-    question_text TEXT NOT NULL,
-    options_json JSON NULL,
-    answer TEXT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-// Add section_id column if it doesn't exist
-$colCheck = $conn->query("SHOW COLUMNS FROM question_bank LIKE 'section_id'");
-if ($colCheck && $colCheck->num_rows === 0) {
-    $conn->query("ALTER TABLE question_bank ADD COLUMN section_id INT NULL AFTER teacher_id");
-}
-
-// Add set_title column if it doesn't exist
-$colCheck = $conn->query("SHOW COLUMNS FROM question_bank LIKE 'set_title'");
-if ($colCheck && $colCheck->num_rows === 0) {
-    $conn->query("ALTER TABLE question_bank ADD COLUMN set_title VARCHAR(255) NULL AFTER section_id");
-}
-
-// Add options_json column if it doesn't exist
-$colCheck = $conn->query("SHOW COLUMNS FROM question_bank LIKE 'options_json'");
-if ($colCheck && $colCheck->num_rows === 0) {
-    $conn->query("ALTER TABLE question_bank ADD COLUMN options_json JSON NULL AFTER question_text");
-}
-
-// Migrate existing options data to options_json if needed
-$result = $conn->query("SELECT id, options FROM question_bank WHERE options IS NOT NULL AND options != '' AND (options_json IS NULL OR options_json = '')");
-if ($result && $result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $updateStmt = $conn->prepare("UPDATE question_bank SET options_json = ? WHERE id = ?");
-        $updateStmt->bind_param('si', $row['options'], $row['id']);
-        $updateStmt->execute();
-    }
-}
+// Migration code removed - using new modular system
 
 $conn->query("CREATE TABLE IF NOT EXISTS assessments (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -150,6 +120,33 @@ $conn->query("CREATE TABLE IF NOT EXISTS announcements (
 
 // Helper for escaping output
 function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+
+// Function to get teacher's current section assignments
+function getTeacherSections($conn, $teacherId) {
+    $sections = [];
+    if ($teacherId > 0) {
+        $stmt = $conn->prepare("
+            SELECT s.id, s.name as section_name 
+            FROM sections s 
+            INNER JOIN teacher_sections ts ON s.id = ts.section_id 
+            WHERE ts.teacher_id = ? 
+            ORDER BY s.name
+        ");
+        if ($stmt) {
+            $stmt->bind_param('i', $teacherId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            while ($row = $result->fetch_assoc()) {
+                $sections[] = $row;
+            }
+            $stmt->close();
+        }
+    }
+    return $sections;
+}
+
+// Get teacher's current sections for this session
+$teacherSections = getTeacherSections($conn, $teacherId);
 
 ?>
 

@@ -78,25 +78,7 @@ ob_start();
                         <span class="muted">Updated: <?php echo h(date('M j, Y', strtotime($m['updated_at']))); ?></span>
                     </div>
                     <div class="card-body">
-                        <div class="muted">Theme: <?php 
-                            $theme = json_decode($m['theme_settings'], true);
-                            if ($theme && isset($theme['bg_color'])) {
-                                $bgColor = $theme['bg_color'];
-                                if ($bgColor === '#ffffff') {
-                                    echo 'Light Theme';
-                                } elseif ($bgColor === '#000000') {
-                                    echo 'Dark Theme';
-                                } elseif ($bgColor === '#f0f8ff') {
-                                    echo 'Blue Theme';
-                                } elseif ($bgColor === '#f0fff0') {
-                                    echo 'Green Theme';
-                                } else {
-                                    echo 'Custom Theme';
-                                }
-                            } else {
-                                echo 'Default Theme';
-                            }
-                        ?></div>
+                        
                         <div style="margin-top:8px; padding:12px; background:#f8f9fa; border-radius:8px; text-align:center; color:#6c757d;">
                             <p>📄 Click "View Full Material" to see the content</p>
                         </div>

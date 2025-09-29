@@ -6,7 +6,7 @@ $pageTitle = 'My Progress';
 // Get student's assessment results and progress data
 $progressData = [];
 $assessmentResults = $conn->query("
-    SELECT a.title, ar.answer, aq.question_text, ar.submitted_at
+    SELECT a.title, ar.response, aq.question_text, ar.submitted_at
     FROM assessment_responses ar
     JOIN assessment_questions aq ON ar.question_id = aq.id
     JOIN assessments a ON ar.assessment_id = a.id

@@ -45,9 +45,22 @@ $filepath = $upload_dir . $filename;
 
 // Move uploaded file
 if (move_uploaded_file($file['tmp_name'], $filepath)) {
-    // Return the URL to the uploaded image
-    $image_url = 'uploads/' . $filename;
-    echo json_encode(['url' => $image_url]);
+    // Set proper permissions
+    chmod($filepath, 0644);
+    
+    // Return the full URL to the uploaded image
+    $base_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'];
+    $script_dir = dirname($_SERVER['SCRIPT_NAME']);
+    $image_url = $base_url . $script_dir . '/uploads/' . $filename;
+    
+    // Also return relative URL for local use
+    $relative_url = 'uploads/' . $filename;
+    
+    echo json_encode([
+        'url' => $image_url,
+        'relative_url' => $relative_url,
+        'filename' => $filename
+    ]);
 } else {
     http_response_code(500);
     echo json_encode(['error' => 'Failed to upload file']);

@@ -634,7 +634,7 @@ $practiceSetsCount = (int)$ptRow['total'];
     </div>
     <?php endif; ?>
 
-    <div class="dashboard-cards">
+<div class="dashboard-cards">
     <div class="card weather-card weather-full-width">
         <div class="weather-header">
             <div class="weather-main-info">
@@ -686,19 +686,13 @@ $practiceSetsCount = (int)$ptRow['total'];
         <div class="icon"><i class="fas fa-question-circle"></i></div>
         <div>Questions</div>
         <div class="count"><?php echo $questionsCount; ?></div>
-        <a href="teacher_questions.php" class="btn">Open</a>
-    </div>
-    <div class="card">
-        <div class="icon"><i class="fas fa-tasks"></i></div>
-        <div>Assessments</div>
-        <div class="count"><?php echo $assessmentsCount; ?></div>
-        <a href="teacher_assessments.php" class="btn">Build</a>
+        <a href="clean_question_creator.php" class="btn">Open</a>
     </div>
     <div class="card">
         <div class="icon"><i class="fas fa-calendar-alt"></i></div>
         <div>Assignments</div>
         <div class="count"><?php echo $assignmentsCount; ?></div>
-        <a href="teacher_schedule.php" class="btn">Assign</a>
+        
     </div>
     <div class="card">
         <div class="icon"><i class="fas fa-fire"></i></div>
@@ -708,11 +702,10 @@ $practiceSetsCount = (int)$ptRow['total'];
     </div>
 </div>
 <div class="quick-links">
-        <a href="teacher_grading.php" class="btn">Grading & Responses</a>
-        <a href="teacher_notifications.php" class="btn">Announcements</a>
-        <a href="teacher_analytics.php" class="btn">Analytics</a>
-        <a href="teacher_account.php" class="btn">Account</a>
-    </div>
+    <a href="teacher_notifications.php" class="btn">Announcements</a>
+    <a href="teacher_analytics.php" class="btn">Analytics</a>
+    <a href="teacher_account.php" class="btn">Account</a>
+</div>
 </div>
 
 <script>

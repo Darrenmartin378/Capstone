@@ -20,21 +20,18 @@ $testsCount = 0;
 $testsRes = $conn->query("SELECT COUNT(DISTINCT a.id) as count 
                          FROM assessments a
                          JOIN assessment_assignments aa ON aa.assessment_id = a.id
-                         WHERE (aa.student_id = $studentId) OR ($studentSectionId > 0 AND aa.section_id = $studentSectionId)");
+                         WHERE aa.section_id = $studentSectionId");
 if ($testsRes && $row = $testsRes->fetch_assoc()) {
     $testsCount = (int)$row['count'];
 }
 
 $questionsCount = 0;
 $questionsRes = $conn->query("
-    SELECT COUNT(DISTINCT qb.set_title) as count 
-    FROM question_bank qb 
-    WHERE qb.section_id = $studentSectionId
-    AND qb.set_title IS NOT NULL 
-    AND qb.set_title != ''
-    AND qb.question_text NOT IN ('dsad', 'dsadasdasdasd', 'placeholder') 
-    AND qb.question_text != '' 
-    AND qb.question_text IS NOT NULL
+    SELECT COUNT(DISTINCT qs.id) as count 
+    FROM question_sets qs
+    WHERE qs.section_id = $studentSectionId
+    AND qs.set_title IS NOT NULL 
+    AND qs.set_title != ''
 ");
 if ($questionsRes && $row = $questionsRes->fetch_assoc()) {
     $questionsCount = (int)$row['count'];
@@ -93,7 +90,7 @@ ob_start();
         margin: 0;
     }
     .welcome-section {
-        background: linear-gradient(135deg, var(--primary), var(--teal));
+        background:blue;
         color: white;
         padding: 30px;
         border-radius: 18px;
@@ -212,7 +209,7 @@ ob_start();
         <p class="description">Assigned assessments and quizzes</p>
     </a>
 
-    <a href="student_questions.php" class="dashboard-card">
+    <a href="clean_question_viewer.php" class="dashboard-card">
         <span class="icon">❓</span>
         <h3>Questions</h3>
         <div class="count"><?php echo $questionsCount; ?></div>
@@ -234,7 +231,7 @@ ob_start();
     <a href="student_tests.php" class="quick-action-btn">
         <span>✏️</span> Take Tests
     </a>
-    <a href="student_questions.php" class="quick-action-btn">
+    <a href="clean_question_viewer.php" class="quick-action-btn">
         <span>💭</span> Answer Questions
     </a>
     <a href="student_notifications.php" class="quick-action-btn">
