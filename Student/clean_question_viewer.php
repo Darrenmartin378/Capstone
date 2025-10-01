@@ -232,7 +232,7 @@ if (isset($_SESSION['section_id']) && $_SESSION['section_id'] > 0) {
                 $questionSets[$idx]['difficulty_label'] = $diffVals[0];
             } elseif (count($diffVals) > 1) {
                 $questionSets[$idx]['difficulty_label'] = 'mixed';
-            } else {
+} else {
                 $questionSets[$idx]['difficulty_label'] = '';
             }
         }
@@ -278,8 +278,26 @@ ob_start();
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(180deg, #fef9c3 0%, #f5f7fa 140px);
-            color: #333;
+            background: #0a0a0f;
+            color: #e1e5f2;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        /* Galaxy background overlay ready for your live background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at top, rgba(139, 92, 246, 0.15) 0%, rgba(0, 0, 0, 0.8) 70%),
+                        radial-gradient(ellipse at bottom right, rgba(34, 211, 238, 0.1) 0%, transparent 50%),
+                        radial-gradient(ellipse at bottom left, rgba(168, 85, 247, 0.08) 0%, transparent 50%);
+            z-index: -1;
+            pointer-events: none;
         }
         
         .container {
@@ -293,7 +311,7 @@ ob_start();
         .main-content { padding: 20px; min-height: 100vh; }
         
         .header {
-            background: white;
+            background: rgba(15, 23, 42, 0.95);
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -316,50 +334,59 @@ ob_start();
         
         .set-card {
             position: relative;
-            background: #fff;
+            background: rgba(15, 23, 42, 0.85);
             padding: 22px;
             border-radius: 16px;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 
+                        0 0 0 1px rgba(139, 92, 246, 0.2);
             transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-            border: 2px solid #eef2f7;
+            border: 1px solid rgba(139, 92, 246, 0.3);
             overflow: hidden;
+            backdrop-filter: blur(12px);
         }
-        .set-card::before{
-            content: "";
-            position: absolute; inset: -40px -40px auto auto; width: 140px; height: 140px;
-            background: radial-gradient(closest-side, rgba(255, 235, 153, .45), rgba(255,255,255,0) 70%);
-            transform: rotate(25deg);
+        /* Cosmic glow effect */
+        .set-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.6), transparent);
             pointer-events: none;
         }
         
         .set-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 16px 26px rgba(0,0,0,0.14);
-            border-color: #e0e7ff;
+            transform: translateY(-6px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 
+                        0 0 0 1px rgba(139, 92, 246, 0.4),
+                        0 0 20px rgba(139, 92, 246, 0.2);
+            border-color: rgba(139, 92, 246, 0.5);
         }
         
         .set-title {
             font-size: 22px;
             font-weight: 800;
             margin-bottom: 12px;
-            color: #0f172a;
+            color: #f1f5f9;
             letter-spacing: .2px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
         }
         
         .set-stats {
-            color: #666;
+            color: rgba(241, 245, 249, 0.8);
             font-size: 14px;
             margin-bottom: 15px;
         }
         /* Inline meta with icons */
-        .set-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color:#6b7280; font-size: 14px; margin-bottom: 14px; }
+        .set-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: rgba(241, 245, 249, 0.7); font-size: 14px; margin-bottom: 14px; }
         .set-meta .meta { display: inline-flex; align-items: center; gap:6px; }
         .set-meta .dot { opacity:.5; }
         
         .btn {
-            background: linear-gradient(90deg,#6366f1,#22c55e);
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(168, 85, 247, 0.8));
             color: white;
-            border: none;
+            border: 1px solid rgba(139, 92, 246, 0.5);
             padding: 12px 22px;
             border-radius: 9999px;
             cursor: pointer;
@@ -368,9 +395,15 @@ ob_start();
             text-decoration: none;
             display: inline-flex; align-items:center; gap:8px;
             transition: transform .12s ease, filter .2s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.3);
         }
         
-        .btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
+        .btn:hover {
+            filter: brightness(1.1); 
+            transform: translateY(-2px); 
+            box-shadow: 0 0 25px rgba(139, 92, 246, 0.5);
+        }
         
         .btn-success {
             background: #28a745;
@@ -429,6 +462,7 @@ ob_start();
         }
         
         .question-text {
+            color: Black;
             font-size: 16px;
             margin-bottom: 15px;
             line-height: 1.5;
@@ -460,7 +494,7 @@ ob_start();
             accent-color: #3b82f6;
             flex-shrink: 0;
         }
-        .option label { flex:1; cursor:pointer; }
+        .option label { color: Black; flex:1; cursor:pointer; }
         
         .matching-grid {
             display: grid;
@@ -549,6 +583,7 @@ ob_start();
         }
         
         .matching-instructions {
+            color: Black;
             background: #e3f2fd;
             padding: 15px;
             border-radius: 6px;
@@ -719,24 +754,32 @@ ob_start();
         }
         
         .content-header {
-            background: linear-gradient(90deg,#fde68a,#a7f3d0);
-            padding: 22px;
-            border-radius: 16px;
-            box-shadow: 0 6px 12px rgba(0,0,0,0.09);
-            margin-bottom: 22px;
+            background: none;
+            padding: 0;
+            border-radius: 0;
+            box-shadow: none;
+            margin-bottom: 12px;
         }
-        .content-header h1{ font-weight:900; color:#0b1021; }
+        .content-header h1{ 
+            font-weight:900; 
+            color: #f1f5f9;
+            text-shadow: none;
+        }
 
         /* Centered quiz container that appears below the title */
         /* Quiz modal overlay */
         .quiz-shell {
             display: none; /* flex when open */
             position: static; 
-            background: transparent;
-            padding: 0; 
+            background: rgba(15, 23, 42, 0.95);
+            padding: 30px; 
             width: 100%;
             justify-content: center;
             align-items: flex-start;
+            border-radius: 16px;
+            box-shadow: 0 0 50px rgba(139, 92, 246, 0.3);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            backdrop-filter: blur(20px);
         }
         .quiz-shell .question-form { width: 100%; max-width: none; margin: 0; border-radius: 0; min-height: calc(100vh - 80px); }
         .quiz-close {
@@ -785,13 +828,23 @@ ob_start();
 
         /* Option interactions */
         .option {
-            border: 1px solid #e5e7eb;
+            border: 1px solid rgba(139, 92, 246, 0.3);
             border-radius: 10px;
             transition: background .15s ease, transform .08s ease, border-color .15s ease;
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(8px);
         }
-        .option:hover { background: #f8fafc; }
-        .option input[type="radio"] { accent-color: #3b82f6; }
-        .option.selected { border-color: #3b82f6; background: #eff6ff; }
+        .option:hover { 
+            background: rgba(139, 92, 246, 0.15);
+            border-color: rgba(139, 92, 246, 0.5);
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+        }
+        .option input[type="radio"] { accent-color: #8b5cf6; }
+        .option.selected { 
+            border-color: rgba(139, 92, 246, 0.6); 
+            background: rgba(139, 92, 246, 0.2);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2), 0 0 20px rgba(139, 92, 246, 0.3);
+        }
         .option:active { transform: scale(.98); }
 
         /* Bottom actions */
@@ -844,7 +897,7 @@ ob_start();
     <div class="page-shell" id="pageShell" style="width: 100%; margin: 0; padding: 16px;">
         <div class="content-header" style="width:100%;">
             <h1><i class="fas fa-question-circle"></i> Available Question Sets</h1>
-            <p>Select a question set to start answering</p>
+            <p style="margin-top:6px;color:rgba(241,245,249,.85)">Select a question set to start answering</p>
         </div>
         <div class="question-sets" style="max-width:800px;">
             <?php if (empty($questionSets)): ?>
@@ -915,12 +968,12 @@ ob_start();
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
-    </div>
+        </div>
         
     <div id="quizShell" class="quiz-shell" tabindex="-1" aria-modal="true" role="dialog">
             <div id="questionForm" class="question-form" style="display: none; position: relative;">
                 <button type="button" class="quiz-close" title="Close" onclick="closeQuiz()">×</button>
-                <h2 id="formTitle">Question Set</h2>
+            <h2 id="formTitle" style="color: Black;"></h2>
                 <div class="quiz-progress" id="quizProgress">
                     <div class="progress-meta">
                         <span id="progressLabel">Question 1</span>
@@ -930,9 +983,9 @@ ob_start();
                 </div>
                 <div class="timer-display" id="timerDisplay" aria-live="polite"></div>
                 <div class="encourage" id="encourageMsg">Great job! <small>Next one 💪</small></div>
-                <div id="questionsContainer">
+            <div id="questionsContainer">
                     <!-- Single question will be rendered here -->
-                </div>
+            </div>
                 <div class="nav-actions">
                     <button id="nextBtn" class="btn btn-success btn-disabled" disabled>Next</button>
                 </div>
@@ -1045,7 +1098,7 @@ ob_start();
                 alert('Error: ' + error.message);
             });
         }
-
+        
         function updateProgress() {
             const total = currentQuestions.length;
             const idx = Math.min(currentIndex + 1, total);
@@ -1083,11 +1136,11 @@ ob_start();
                 } catch(e) {}
             }
             qDiv.innerHTML = `
-                <div class="question-header">
+                    <div class="question-header">
                     <div class="question-number">${qLabel}</div>
-                    <div class="question-points">${question.points} pts</div>
-                </div>
-                <div class="question-text">${question.question_text}</div>
+                        <div class="question-points">${question.points} pts</div>
+                    </div>
+                    <div class="question-text">${question.question_text}</div>
                 ${renderQuestionContent(question, currentIndex)}
             `;
             container.appendChild(qDiv);
@@ -1103,12 +1156,12 @@ ob_start();
                 });
             }
 
-            if (question.type === 'matching') {
+                if (question.type === 'matching') {
                 const draggableItems = qDiv.querySelectorAll('.draggable-item');
-                draggableItems.forEach(item => {
-                    item.addEventListener('dragstart', drag);
-                    item.addEventListener('dragend', dragEnd);
-                });
+                    draggableItems.forEach(item => {
+                        item.addEventListener('dragstart', drag);
+                        item.addEventListener('dragend', dragEnd);
+                    });
                 const observerFn = () => {
                     // Enable Next when all drop zones have answers
                     const dz = qDiv.querySelectorAll('.drop-zone');
@@ -1392,20 +1445,20 @@ ob_start();
         function collectCurrentAnswer() {
             const question = currentQuestions[currentIndex];
             if (!question) return;
-            if (question.type === 'matching') {
-                const matchingResponses = {};
-                const dropZones = document.querySelectorAll(`[data-question-id="${question.id}"].drop-zone`);
-                dropZones.forEach(zone => {
-                    const pairIndex = zone.dataset.pairIndex;
-                    const answer = zone.dataset.answer || '';
-                    matchingResponses[pairIndex] = answer;
-                });
+                if (question.type === 'matching') {
+                    const matchingResponses = {};
+                    const dropZones = document.querySelectorAll(`[data-question-id="${question.id}"].drop-zone`);
+                    dropZones.forEach(zone => {
+                        const pairIndex = zone.dataset.pairIndex;
+                        const answer = zone.dataset.answer || '';
+                        matchingResponses[pairIndex] = answer;
+                    });
                 studentResponses[question.id] = matchingResponses;
-            } else {
-                const response = document.querySelector(`input[name="question_${question.id}"]:checked, textarea[name="question_${question.id}"]`);
+                } else {
+                    const response = document.querySelector(`input[name="question_${question.id}"]:checked, textarea[name="question_${question.id}"]`);
                 if (response) studentResponses[question.id] = response.value;
-            }
-        }
+                    }
+                }
 
         function submitResponses() {
             // build from collected studentResponses (already gathered step-by-step)

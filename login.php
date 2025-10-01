@@ -47,7 +47,7 @@ if ($_POST) {
     
     // Check students table if not found in teachers
     if (!$user) {
-        $stmt = $conn->prepare("SELECT id, password FROM students WHERE student_number = ? OR email = ?");
+        $stmt = $conn->prepare("SELECT id, password, name FROM students WHERE student_number = ? OR email = ?");
         $stmt->bind_param('ss', $username, $username);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -93,7 +93,7 @@ if ($_POST) {
                 case 'student':
                     $_SESSION['student_logged_in'] = true;
                     $_SESSION['student_id'] = $user['id'];
-                    $_SESSION['student_name'] = $username;
+                    $_SESSION['student_name'] = $user['name'];
                     break;
                 case 'parent':
                     $_SESSION['parent_logged_in'] = true;

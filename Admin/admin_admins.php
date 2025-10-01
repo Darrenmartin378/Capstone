@@ -726,7 +726,6 @@ ob_start();
     <div id="admin-form-container" class="form-container" style="display: none;">
         <div class="form-header">
             <h3 id="form-title">Add New Admin</h3>
-            <button id="close-form-btn" class="close-form-btn">&times;</button>
         </div>
         <form id="admin-form" method="POST">
             <?php echo csrf_token(); ?>

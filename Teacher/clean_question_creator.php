@@ -39,13 +39,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     exit;
                 }
                 
-                // Create new question set
+                // Create new question set (supports multi-section via section_ids[])
                 $setTitle = $_POST['set_title'] ?? '';
                 if (empty($setTitle)) {
                     echo json_encode(['success' => false, 'error' => 'Please enter a question set title']);
                     exit;
                 }
                 
+                // Resolve sections
+                $sectionIds = [];
+                if (!empty($_POST['section_ids']) && is_array($_POST['section_ids'])) {
+                    foreach ($_POST['section_ids'] as $sid) { $sid = (int)$sid; if ($sid>0) $sectionIds[] = $sid; }
+                    $sectionIds = array_values(array_unique($sectionIds));
+                }
+                if (empty($sectionIds)) { $one = (int)($_POST['section_id'] ?? 0); if ($one>0) $sectionIds = [$one]; }
+                if (empty($sectionIds)) {
+                    echo json_encode(['success' => false, 'error' => 'Please select at least one section']);
+                    exit;
+                }
+                $sectionId = $sectionIds[0];
+
                 // Get or create question set
                 $setId = $questionHandler->getOrCreateQuestionSet($_SESSION['teacher_id'], $sectionId, $setTitle);
                 if (!$setId) {
@@ -151,6 +164,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
                 
                 if ($successCount > 0) {
+                    // Duplicate to other selected sections
+                    if (count($sectionIds) > 1) {
+                        foreach (array_slice($sectionIds, 1) as $sid) {
+                            $dupSetId = $questionHandler->getOrCreateQuestionSet($_SESSION['teacher_id'], $sid, $setTitle);
+                            if ($dupSetId) {
+                                // Copy set-level fields
+                                try {
+                                    $hasTimerCol = $conn->query("SHOW COLUMNS FROM question_sets LIKE 'timer_minutes'");
+                                    $hasOpenCol  = $conn->query("SHOW COLUMNS FROM question_sets LIKE 'open_at'");
+                                    $hasDiffCol  = $conn->query("SHOW COLUMNS FROM question_sets LIKE 'difficulty'");
+                                    $fields = []; $types = ''; $vals = [];
+                                    if ($hasTimerCol && $hasTimerCol->num_rows>0) { $fields[] = 'timer_minutes = ?'; $types.='i'; $vals[] = $timerMinutes; }
+                                    if ($hasOpenCol && $hasOpenCol->num_rows>0) { $fields[] = 'open_at = ?'; $types.='s'; $vals[] = $openAt; }
+                                    if ($hasDiffCol && $hasDiffCol->num_rows>0) { $fields[] = 'difficulty = ?'; $types.='s'; $vals[] = (string)($_POST['set_difficulty'] ?? ''); }
+                                    if (!empty($fields)) {
+                                        $sql = 'UPDATE question_sets SET '.implode(', ', $fields).' WHERE id = ?';
+                                        $types.='i'; $vals[] = $dupSetId;
+                                        $st = $conn->prepare($sql); if ($st) { $st->bind_param($types, ...$vals); $st->execute(); }
+                                    }
+                                } catch (Exception $e) { /* ignore */ }
+                                foreach ($questions as $qd) {
+                                    $r = $questionHandler->createQuestion($_SESSION['teacher_id'], $sid, $dupSetId, $qd);
+                                    if ($r['success']) { $successCount++; } else { $errorCount++; }
+                                    $results[] = $r;
+                                }
+                            }
+                        }
+                    }
                     echo json_encode([
                         'success' => true, 
                         'message' => "Successfully created {$successCount} question(s)",
@@ -832,14 +873,26 @@ render_teacher_header('clean_question_creator.php', $teacherName, 'Question Crea
         <div class="question-form">
             <h2 id="formTitleHeading">Create Questions</h2>
             <form id="questionForm">
-                <div class="form-group">
-                    <label for="section_id">Section:</label>
-                    <select id="section_id" name="section_id" required>
-                        <option value="">Select a section</option>
-                        <?php foreach ($teacherSections as $section): ?>
-                            <option value="<?php echo $section['id']; ?>"><?php echo htmlspecialchars($section['section_name'] ?: $section['name']); ?></option>
+                <div class="form-group" style="position:relative;">
+                    <label>Sections:</label>
+                    <div id="sectionMulti" class="multi-select" tabindex="0" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer; min-width:260px;">
+                        <span id="sectionSummary" class="multi-select-label" style="color:#6b7280;">Select sections</span>
+                        <i class="fas fa-chevron-down" style="font-size:12px; color:#6b7280;"></i>
+                    </div>
+                    <div id="sectionPanel" class="multi-select-panel" style="position:absolute; top:100%; left:0; width:100%; background:#fff; border:1px solid #e5e7eb; border-radius:10px; margin-top:6px; box-shadow:0 10px 20px rgba(0,0,0,.08); padding:8px; display:none; max-height:260px; overflow:auto; z-index:1000;">
+                        <label style="display:grid; grid-template-columns: 1fr auto; align-items:center; column-gap:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:2px solid #16a34a; margin-bottom:6px;">
+                            <span style="color:#374151; font-weight:600;">Select all</span>
+                            <input type="checkbox" id="section_all" style="margin:0; justify-self:end;">
+                        </label>
+                        <?php foreach ($teacherSections as $section): $label = htmlspecialchars($section['section_name'] ?: $section['name']); ?>
+                        <label style="display:grid; grid-template-columns: 1fr auto; align-items:center; column-gap:10px; padding:8px 10px; border-radius:8px; border:2px solid #16a34a; margin-bottom:6px; background:#fff;">
+                            <span style="color:#111827;">&nbsp;<?php echo $label; ?></span>
+                            <input type="checkbox" class="sec-box" value="<?php echo (int)$section['id']; ?>" data-label="<?php echo $label; ?>" style="margin:0; justify-self:end;">
+                        </label>
                         <?php endforeach; ?>
-                    </select>
+                    </div>
+                    <div id="sectionHiddenInputs"></div>
+                    <small style="color:#6b7280; display:block; margin-top:6px;">Choose one or more sections.</small>
                 </div>
                 
                 
@@ -869,140 +922,7 @@ render_teacher_header('clean_question_creator.php', $teacherName, 'Question Crea
                 
                 
                 <!-- Questions Container -->
-                <div id="questions-container">
-                    <!-- Question 1 (Default) -->
-                    <div class="question-item" data-question-index="0">
-                        <div class="question-header">
-                            <h3>Question 1</h3>
-                            <button type="button" class="btn btn-danger btn-sm remove-question" onclick="removeQuestion(this)" style="display: none;">
-                                <i class="fas fa-trash"></i> Remove
-                            </button>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="type_0">Question Type:</label>
-                            <select id="type_0" name="questions[0][type]" required onchange="showQuestionTypeSection(0);">
-                                <option value="">Select Question Type</option>
-                                <option value="mcq">Multiple Choice</option>
-                                <option value="matching">Matching</option>
-                                <option value="essay">Essay</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="question_text_0">Question Text:</label>
-                            <textarea id="question_text_0" name="questions[0][question_text]" rows="3" required></textarea>
-                            <small id="question_text_help_0" class="form-text text-muted" style="display: none;">
-                                For matching questions, this will be used as the main instruction above all matching pairs.
-                            </small>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="points_0">Points:</label>
-                            <input type="number" id="points_0" name="questions[0][points]" value="1" min="1" required>
-                        </div>
-                        
-                        
-                        <!-- MCQ Section -->
-                        <div id="mcq-section_0" class="question-type-section">
-                            <h3>Multiple Choice Options</h3>
-                            <div id="mcq-options_0">
-                                <div class="option-group">
-                                    <label for="choice_a_0">Option A:</label>
-                                    <input type="text" id="choice_a_0" name="questions[0][choice_a]" placeholder="Option A" required>
-                                    <label for="correct_a_0">Correct Answer:</label>
-                                    <input type="radio" id="correct_a_0" name="questions[0][correct_answer]" value="A" required>
-                                    <button type="button" onclick="removeOption(this)">×</button>
-                                </div>
-                                <div class="option-group">
-                                    <label for="choice_b_0">Option B:</label>
-                                    <input type="text" id="choice_b_0" name="questions[0][choice_b]" placeholder="Option B" required>
-                                    <label for="correct_b_0">Correct Answer:</label>
-                                    <input type="radio" id="correct_b_0" name="questions[0][correct_answer]" value="B" required>
-                                    <button type="button" onclick="removeOption(this)">×</button>
-                                </div>
-                                <div class="option-group">
-                                    <label for="choice_c_0">Option C:</label>
-                                    <input type="text" id="choice_c_0" name="questions[0][choice_c]" placeholder="Option C" required>
-                                    <label for="correct_c_0">Correct Answer:</label>
-                                    <input type="radio" id="correct_c_0" name="questions[0][correct_answer]" value="C" required>
-                                    <button type="button" onclick="removeOption(this)">×</button>
-                                </div>
-                                <div class="option-group">
-                                    <label for="choice_d_0">Option D:</label>
-                                    <input type="text" id="choice_d_0" name="questions[0][choice_d]" placeholder="Option D" required>
-                                    <label for="correct_d_0">Correct Answer:</label>
-                                    <input type="radio" id="correct_d_0" name="questions[0][correct_answer]" value="D" required>
-                                    <button type="button" onclick="removeOption(this)">×</button>
-                                </div>
-                            </div>
-                            <button type="button" class="add-option" onclick="addMCQOption(0)">
-                                <i class="fas fa-plus"></i> Add Option
-                            </button>
-                        </div>
-                
-                        <!-- Matching Section -->
-                        <div id="matching-section_0" class="question-type-section">
-                            <h3>Matching Pairs</h3>
-                            
-                            <div class="form-group">
-                                <label>Left Items (Rows):</label>
-                                <div id="matching-rows_0">
-                                    <div class="input-group">
-                                        <label for="left_item_1_0">Row 1:</label>
-                                        <input type="text" id="left_item_1_0" name="questions[0][left_items][]" placeholder="Row 1" required>
-                                        <button type="button" class="remove-option" onclick="removeMatchingRow(this, 0)">×</button>
-                                    </div>
-                                    <div class="input-group">
-                                        <label for="left_item_2_0">Row 2:</label>
-                                        <input type="text" id="left_item_2_0" name="questions[0][left_items][]" placeholder="Row 2" required>
-                                        <button type="button" class="remove-option" onclick="removeMatchingRow(this, 0)">×</button>
-                                    </div>
-                                </div>
-                                <button type="button" class="add-option" onclick="addMatchingRow(0)">
-                                    <i class="fas fa-plus"></i> Add Row
-                                </button>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Right Items (Columns):</label>
-                                <div id="matching-columns_0">
-                                    <div class="input-group">
-                                        <label for="right_item_1_0">Column 1:</label>
-                                        <input type="text" id="right_item_1_0" name="questions[0][right_items][]" placeholder="Column 1" required>
-                                        <button type="button" class="remove-option" onclick="removeMatchingColumn(this, 0)">×</button>
-                                    </div>
-                                    <div class="input-group">
-                                        <label for="right_item_2_0">Column 2:</label>
-                                        <input type="text" id="right_item_2_0" name="questions[0][right_items][]" placeholder="Column 2" required>
-                                        <button type="button" class="remove-option" onclick="removeMatchingColumn(this, 0)">×</button>
-                                    </div>
-                                </div>
-                                <button type="button" class="add-option" onclick="addMatchingColumn(0)">
-                                    <i class="fas fa-plus"></i> Add Column
-                                </button>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Correct Matches:</label>
-                                <div id="matching-matches_0">
-                                    <!-- Will be populated by JavaScript -->
-                                </div>
-                            </div>
-                        </div>
-                
-                        <!-- Essay Section -->
-                        <div id="essay-section_0" class="question-type-section">
-                            <h3>Essay Question</h3>
-                            <p>Essay questions will be manually graded by the teacher.</p>
-                            <div class="form-group">
-                                <label for="essay_rubric_0">Rubric (required)</label>
-                                <textarea id="essay_rubric_0" name="questions[0][rubric]" rows="4" placeholder="e.g., Thesis (2), Evidence (3), Organization (2), Grammar (3)"></textarea>
-                                <small class="form-text text-muted">Describe scoring criteria or paste a rubric. Students will see this rubric.</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <div id="questions-container"></div>
                 
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="addNewQuestion()" style="margin-right: 10px;">
@@ -1050,7 +970,6 @@ render_teacher_header('clean_question_creator.php', $teacherName, 'Question Crea
                 <div class="section-filter">
                     <label for="sectionFilter">Filter by Section:</label>
                     <select id="sectionFilter" onchange="filterBySection()">
-                        <option value="">All Sections</option>
                         <?php 
                         // Get all sections that the teacher handles
                         foreach ($teacherSections as $section): 
@@ -1163,12 +1082,65 @@ render_teacher_header('clean_question_creator.php', $teacherName, 'Question Crea
                         try{
                             const left = Array.isArray(raw.left_items)?raw.left_items:JSON.parse(raw.left_items||'[]');
                             const right = Array.isArray(raw.right_items)?raw.right_items:JSON.parse(raw.right_items||'[]');
+                            // Add rows/cols to fit
                             for(let n=2;n<left.length;n++) addMatchingRow(i);
                             const li = document.querySelectorAll(`input[name="questions[${i}][left_items][]"]`);
                             const ri = document.querySelectorAll(`input[name="questions[${i}][right_items][]"]`);
                             left.forEach((v,k)=>{ if(li[k]) li[k].value = v; });
                             right.forEach((v,k)=>{ if(ri[k]) ri[k].value = v; });
+
+                            // Build normalized matches from various shapes
+                            const normalize = (rawM)=>{
+                                let out = [];
+                                if(!rawM) return out;
+                                const r = (typeof rawM === 'string') ? (function(){ try { return JSON.parse(rawM); } catch(e){ return rawM; } })() : rawM;
+                                if(Array.isArray(r)){
+                                    r.forEach(item=>{
+                                        if(typeof item === 'string') out.push(item);
+                                        else if(typeof item === 'number') out.push(right[item] ?? '');
+                                        else if(item && typeof item === 'object') out.push(item.value ?? item.answer ?? item.right ?? item.right_item ?? '');
+                                    });
+                                } else if(r && typeof r === 'object'){
+                                    Object.keys(r).forEach(k=> out.push(r[k]));
+                                } else if(typeof r === 'number'){
+                                    out.push(right[r] ?? '');
+                                }
+                                return out;
+                            };
+                            let matches = normalize(raw.matches);
+                            if(matches.length === 0) matches = normalize(raw.correct_pairs);
+
+                            // Populate selects after options are built
                             updateMatchingMatches(i);
+                            setTimeout(()=>{
+                                const selects = document.querySelectorAll(`#matching-matches_${i} select`);
+                                const apply = () => {
+                                    const ready = Array.from(selects).every(s=>s.options.length>1);
+                                    if(!ready){ setTimeout(apply, 80); return; }
+                                    matches.forEach((targetVal, idxSel)=>{
+                                        const sel = selects[idxSel]; if(!sel) return;
+                                        const target = (targetVal ?? '').toString().trim().toLowerCase();
+                                        let chosen = false;
+                                        Array.from(sel.options).forEach(opt=>{
+                                            const ov = (opt.value||'').toString().trim().toLowerCase();
+                                            const ot = (opt.textContent||'').toString().trim().toLowerCase();
+                                            if(ov===target || ot===target){ opt.selected = true; chosen = true; }
+                                        });
+                                        if(!chosen && target){
+                                            Array.from(sel.options).forEach(opt=>{
+                                                const ov = (opt.value||'').toString().trim().toLowerCase();
+                                                const ot = (opt.textContent||'').toString().trim().toLowerCase();
+                                                if(ov.includes(target) || target.includes(ov) || ot.includes(target) || target.includes(ot)){
+                                                    opt.selected = true; chosen = true;
+                                                }
+                                            });
+                                        }
+                                        if(!chosen && target){ sel.value = targetVal; }
+                                        sel.dispatchEvent(new Event('change'));
+                                    });
+                                };
+                                apply();
+                            },100);
                         }catch(e){}
                         document.getElementById(`points_${i}`).value = raw.points||2;
                     } else if(t==='essay'){
@@ -1181,9 +1153,44 @@ render_teacher_header('clean_question_creator.php', $teacherName, 'Question Crea
             });
             closeImportModal();
         }
+        // Start with zero questions; teacher will click "Add New Question"
         let questionIndex = 0;
         window.isEditMode = false;
         window.currentEditSetId = null;
+        
+        // Dropdown with checkboxes (multi-select sections)
+        (function multiSelectSections(){
+            const trigger = document.getElementById('sectionMulti');
+            const panel = document.getElementById('sectionPanel');
+            const all = document.getElementById('section_all');
+            const boxes = Array.from(panel ? panel.querySelectorAll('.sec-box') : []);
+            const summary = document.getElementById('sectionSummary');
+            const hiddenWrap = document.getElementById('sectionHiddenInputs');
+            if(!trigger || !panel || !summary) return;
+            const open = ()=>{ panel.style.display = 'block'; };
+            const close = ()=>{ panel.style.display = 'none'; };
+            trigger.addEventListener('click', (e)=>{ e.stopPropagation(); panel.style.display = (panel.style.display==='block'?'none':'block'); });
+            document.addEventListener('click', (e)=>{ if(!panel.contains(e.target) && e.target!==trigger) close(); });
+            const syncAll = ()=>{
+                const total = boxes.length;
+                const checked = boxes.filter(b=>b.checked).length;
+                if(all){ all.indeterminate = checked>0 && checked<total; all.checked = checked===total; }
+                const labels = boxes.filter(b=>b.checked).map(b=>b.getAttribute('data-label'));
+                summary.textContent = labels.length ? labels.join(', ') : 'Select sections';
+                // Sync hidden inputs
+                hiddenWrap.innerHTML = '';
+                boxes.filter(b=>b.checked).forEach(b=>{
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'section_ids[]';
+                    input.value = b.value;
+                    hiddenWrap.appendChild(input);
+                });
+            };
+            if(all){ all.addEventListener('change', ()=>{ boxes.forEach(b=> b.checked = all.checked); syncAll(); }); }
+            boxes.forEach(b=> b.addEventListener('change', syncAll));
+            syncAll();
+        })();
         
         // Global functions that need to be accessible from HTML
         function showQuestionTypeSection(questionIndex = 0) {
@@ -1991,21 +1998,22 @@ render_teacher_header('clean_question_creator.php', $teacherName, 'Question Crea
             // Get the first question data (since we're creating a new set)
             const typeElement = document.getElementById('type_0') || document.getElementById('type');
             const questionTextElement = document.getElementById('question_text_0') || document.getElementById('question_text');
-            const sectionIdElement = document.getElementById('section_id');
             const setTitleElement = document.getElementById('set_title');
+            // Multi-select sections (checkboxes in dropdown)
+            const sectionBoxes = document.querySelectorAll('#sectionHiddenInputs input[name="section_ids[]"]');
+            const selectedSectionIds = Array.from(sectionBoxes).map(i => i.value);
             
-            if (!typeElement || !questionTextElement || !sectionIdElement || !setTitleElement) {
+            if (!typeElement || !questionTextElement || !setTitleElement) {
                 alert('Form elements not found. Please refresh the page and try again.');
                 return;
             }
             
             const type = typeElement.value;
             const questionText = questionTextElement.value;
-            const sectionId = sectionIdElement.value;
             const setTitle = setTitleElement.value;
             
             // Basic validation
-            if (!sectionId || !questionText || !type) {
+            if (selectedSectionIds.length === 0 || !questionText || !type) {
                 alert('Please fill in all required fields!');
                 return;
             }
@@ -2040,6 +2048,16 @@ render_teacher_header('clean_question_creator.php', $teacherName, 'Question Crea
             }
             
             const formData = new FormData(this);
+            // Normalize section selection for backend: always send section_ids[]; also include first as section_id for compatibility
+            try {
+                // Remove any accidental single field
+                formData.delete('section_id');
+            } catch(e) {}
+            // Append chosen sections
+            selectedSectionIds.forEach(id => formData.append('section_ids[]', id));
+            if (selectedSectionIds.length > 0) {
+                formData.append('section_id', selectedSectionIds[0]);
+            }
             if (window.isEditMode) {
                 formData.append('action', 'update_question_set');
                 formData.append('set_id', window.currentEditSetId || '');
@@ -2551,18 +2569,25 @@ render_teacher_header('clean_question_creator.php', $teacherName, 'Question Crea
             const tableRows = document.querySelectorAll('.question-bank-table tbody tr');
             
             tableRows.forEach(row => {
+                // Each set row is followed by an optional details row. Hide/show both together.
                 const sectionCell = row.querySelector('.section-name');
-                if (sectionCell) {
-                    const sectionName = sectionCell.textContent.trim();
-                    
-                    if (selectedSection === '' || sectionName === selectedSection) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
+                if (!sectionCell) return;
+                const sectionName = sectionCell.textContent.trim();
+                const match = sectionName === selectedSection;
+                row.style.display = match ? '' : 'none';
+                const next = row.nextElementSibling;
+                if (next && !next.querySelector('.set-title')) {
+                    next.style.display = match ? '' : 'none';
                 }
             });
         }
+
+        // Apply initial filter on load so default selection (e.g., Rizal) is enforced immediately
+        document.addEventListener('DOMContentLoaded', function(){
+            if (document.getElementById('sectionFilter')) {
+                filterBySection();
+            }
+        });
     </script>
     </div>
 </body>

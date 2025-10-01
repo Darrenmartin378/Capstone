@@ -18,19 +18,23 @@ if ($sectionId > 0) {
 ob_start();
 ?>
 <style>
-.shell{max-width:1000px;margin:0 auto;padding:20px}
-.header{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 18px;box-shadow:0 6px 16px rgba(0,0,0,.06);margin-bottom:16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
-.card{background:#fff;border:1px solid #eef2f7;border-radius:16px;box-shadow:0 8px 18px rgba(0,0,0,.06);padding:16px}
-.title{font-weight:800;color:#0f172a;margin-bottom:8px}
-.meta{color:#6b7280;font-size:12px;margin-bottom:12px}
-.btn{background:linear-gradient(90deg,#6366f1,#22c55e);color:#fff;border:none;border-radius:9999px;padding:10px 16px;font-weight:800;cursor:pointer}
-.empty{padding:40px;text-align:center;border-radius:12px;border:1px dashed #e5e7eb;background:#fafafa}
+.shell{max-width:1240px;margin:0 auto;padding:20px}
+.practice-header{margin-bottom:12px}
+.practice-header h1{color:#f1f5f9;font-weight:900;margin:0 0 6px 0}
+.practice-header p{margin:0;color:rgba(241,245,249,.85)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;justify-content:start;justify-items:stretch}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.card{position:relative;background:rgba(15,23,42,.85);padding:22px;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.4),0 0 0 1px rgba(139,92,246,.2);transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;border:1px solid rgba(139,92,246,.3);overflow:hidden;backdrop-filter:blur(12px)}
+.card:hover{transform:translateY(-6px);box-shadow:0 16px 40px rgba(0,0,0,.6),0 0 0 1px rgba(139,92,246,.4),0 0 20px rgba(139,92,246,.2);border-color:rgba(139,92,246,.5)}
+.title{font-weight:800;color:#f1f5f9;margin-bottom:8px;font-size:20px}
+.meta{color:#9aa4b2;font-size:12px;margin-bottom:12px}
+.btn{background:linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(168, 85, 247, 0.8));color:#fff;border:1px solid rgba(139, 92, 246, 0.5);border-radius:9999px;padding:10px 16px;font-weight:800;cursor:pointer;backdrop-filter:blur(10px);box-shadow:0 0 15px rgba(139, 92, 246, 0.3)}
+.empty{padding:40px;text-align:center;border-radius:12px;border:1px dashed rgba(139, 92, 246, 0.3);background:rgba(15, 23, 42, 0.6);color:rgba(241, 245, 249, 0.7);backdrop-filter:blur(8px)}
 </style>
 <div class="shell">
-  <div class="header">
-    <h1 style="margin:0"><i class="fas fa-bolt"></i> Warm-Up Practice</h1>
-    <p style="margin:4px 0 0;color:#6b7280">Optional practice sets posted by your teacher. No schedule, start anytime.</p>
+  <div class="practice-header">
+    <h1><i class="fas fa-fire"></i> Warm-Up Practice Sets</h1>
+    <p>Optional practice sets you can take anytime</p>
   </div>
   <?php if (empty($sets)): ?>
     <div class="empty">No practice sets available.</div>

@@ -55,22 +55,63 @@ try {
         
         body { 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            color: var(--text-primary);
-            background: var(--bg-primary);
+            color: #e1e5f2;
+            background: #0a0a0f;
             display: flex;
             min-height: 100vh;
             line-height: 1.6;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+            position: relative;
+            overflow-x: hidden;
         }
 
-        /* Sidebar - Clean White Design */
+        /* Galaxy Video Background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('../assets/images/3194277-hd_1920_1080_30fps.mp4') center/cover;
+            z-index: -2;
+            pointer-events: none;
+        }
+
+        .galaxy-video {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -2;
+            pointer-events: none;
+        }
+
+        /* Galaxy overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at top, rgba(139, 92, 246, 0.15) 0%, rgba(0, 0, 0, 0.8) 70%),
+                        radial-gradient(ellipse at bottom right, rgba(34, 211, 238, 0.1) 0%, transparent 50%),
+                        radial-gradient(ellipse at bottom left, rgba(168, 85, 247, 0.08) 0%, transparent 50%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Sidebar - Galaxy Theme */
         .sidebar {
             width: 256px;
-            background: var(--bg-card);
-            color: var(--text-primary);
+            background: rgba(15, 23, 42, 0.95);
+            color: #e1e5f2;
             padding: 0;
-            box-shadow: var(--shadow-lg);
+            box-shadow: 0 0 40px rgba(139, 92, 246, 0.2);
             position: fixed;
             top: 0;
             left: 0;
@@ -78,7 +119,8 @@ try {
             overflow-y: auto;
             z-index: 1000;
             transition: all 0.3s ease;
-            border-right: 1px solid var(--border);
+            border-right: 1px solid rgba(139, 92, 246, 0.3);
+            backdrop-filter: blur(20px);
         }
 
         /* Sidebar collapsed state - icon only */
@@ -108,16 +150,17 @@ try {
 
         .sidebar-header {
             padding: 16px 24px;
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid rgba(139, 92, 246, 0.2);
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.3s ease;
             position: relative;
-            background: var(--bg-card);
+            background: rgba(15, 23, 42, 0.9);
             z-index: 1002;
             margin-top: 64px;
             min-height: 64px;
+            backdrop-filter: blur(12px);
         }
 
 
@@ -169,7 +212,7 @@ try {
             align-items: center;
             gap: 12px;
             text-decoration: none;
-            color: var(--text-primary);
+            color: #f1f5f9;
             z-index: 1003;
             position: relative;
         }
@@ -188,7 +231,8 @@ try {
             font-size: 18px;
             font-weight: 600;
             margin: 0;
-            color: var(--text-primary);
+            color: #f1f5f9;
+            text-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
         }
 
         .sidebar-logo .icon {
@@ -240,45 +284,49 @@ try {
             align-items: center;
             gap: 16px;
             padding: 12px 24px;
-            color: var(--text-secondary);
+            color: rgba(241, 245, 249, 0.7);
             text-decoration: none;
             transition: all 0.3s ease;
-            border-radius: 8px;
+            border-radius: 12px;
             margin: 4px 16px;
             font-weight: 500;
             font-size: 15px;
             min-height: 48px;
             position: relative;
+            border: 1px solid transparent;
         }
 
 
         .sidebar-nav a:hover {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            transform: translateX(2px);
-            box-shadow: var(--shadow-sm);
+            background: rgba(139, 92, 246, 0.15);
+            color: #f1f5f9;
+            transform: translateX(4px);
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+            border-color: rgba(139, 92, 246, 0.4);
         }
 
         .sidebar-nav a.active {
-            background: var(--primary);
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(168, 85, 247, 0.8));
             color: #ffffff;
             font-weight: 600;
-            box-shadow: var(--shadow-md);
+            box-shadow: 0 0 25px rgba(139, 92, 246, 0.5);
+            border-color: rgba(139, 92, 246, 0.6);
         }
 
         .sidebar-nav .icon {
             font-size: 20px;
             width: 24px;
             text-align: center;
-            color: var(--text-muted);
+            color: rgba(241, 245, 249, 0.6);
         }
 
         .sidebar-nav a.active .icon {
             color: #ffffff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
         }
 
         .sidebar-nav a:hover .icon {
-            color: var(--text-primary);
+            color: #f1f5f9;
         }
 
         /* Main Content */
@@ -287,7 +335,7 @@ try {
             display: flex;
             flex-direction: column;
             transition: all 0.3s ease;
-            background: var(--bg-primary);
+            background: transparent;
             margin-left: 256px;
         }
 
@@ -295,10 +343,10 @@ try {
             margin-left: 72px;
         }
 
-        /* Header - Clean White Design */
+        /* Header - Galaxy Theme */
         .header {
-            background: var(--bg-card);
-            border-bottom: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.95);
+            border-bottom: 1px solid rgba(139, 92, 246, 0.3);
             padding: 8px 16px;
             display: flex;
             justify-content: space-between;
@@ -308,9 +356,10 @@ try {
             left: 0;
             right: 0;
             z-index: 1001;
-            color: var(--text-primary);
-            box-shadow: var(--shadow-sm);
+            color: #e1e5f2;
+            box-shadow: 0 0 30px rgba(139, 92, 246, 0.2);
             height: 70px;
+            backdrop-filter: blur(20px);
         }
 
         /* Force header elements to be positioned right after menu button */
@@ -329,9 +378,8 @@ try {
         .header-center {
             display: flex;
             align-items: center;
-            gap: 16px;
-            flex: 1;
-            max-width: 600px;
+            gap: 8px;
+            flex: none;
             justify-content: flex-start;
             margin-left: 0 !important;
             padding-left: 0 !important;
@@ -339,11 +387,11 @@ try {
 
         /* Clean Menu Button */
         .menu-button {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            color: var(--text-primary);
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            color: #e1e5f2;
             padding: 8px;
-            border-radius: 8px;
+            border-radius: 12px;
             cursor: pointer;
             transition: all 0.3s ease;
             font-size: 20px;
@@ -352,15 +400,16 @@ try {
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 16px;
-            box-shadow: var(--shadow-sm);
+            margin-right: 12px;
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+            backdrop-filter: blur(10px);
         }
 
         .menu-button:hover {
-            background: var(--primary);
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(168, 85, 247, 0.8));
             color: #ffffff;
             transform: scale(1.05);
-            box-shadow: var(--shadow-md);
+            box-shadow: 0 0 25px rgba(139, 92, 246, 0.5);
         }
 
         .menu-button:active {
@@ -376,13 +425,14 @@ try {
 
         .header h1 {
             margin: 0;
-            font-size: 24px;
+            font-size: 20px;
             font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 12px;
-            color: var(--text-primary);
+            gap: 8px;
+            color: #f1f5f9;
             white-space: nowrap;
+            text-shadow: 0 0 15px rgba(139, 92, 246, 0.5);
         }
 
         .section-info {
@@ -391,16 +441,16 @@ try {
         }
 
         .section-badge {
-            background: var(--primary);
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(168, 85, 247, 0.8));
             color: #ffffff;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 13px;
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 12px;
             font-weight: 600;
-            border: 1px solid var(--primary);
+            border: 1px solid rgba(139, 92, 246, 0.5);
             white-space: nowrap;
-            box-shadow: var(--shadow-sm);
-            margin-left: 12px;
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+            margin-left: 4px;
         }
 
         .header h1 .emoji {
@@ -414,23 +464,24 @@ try {
         }
 
         .chip {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
+            background: rgba(15, 23, 42, 0.8);
+            color: #e1e5f2;
             padding: 8px 16px;
             border-radius: 20px;
             font-size: 14px;
             font-weight: 500;
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow-sm);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+            backdrop-filter: blur(10px);
         }
 
         .notification-icon {
             position: relative;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            color: var(--text-primary);
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            color: #e1e5f2;
             padding: 8px;
-            border-radius: 8px;
+            border-radius: 12px;
             cursor: pointer;
             transition: all 0.3s ease;
             font-size: 20px;
@@ -439,14 +490,15 @@ try {
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: var(--shadow-sm);
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+            backdrop-filter: blur(10px);
         }
 
         .notification-icon:hover {
-            background: var(--primary);
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(168, 85, 247, 0.8));
             color: #ffffff;
             transform: scale(1.05);
-            box-shadow: var(--shadow-md);
+            box-shadow: 0 0 25px rgba(139, 92, 246, 0.5);
         }
 
         .notification-badge {
@@ -469,20 +521,20 @@ try {
         .logout {
             text-decoration: none;
             padding: 10px 18px;
-            background: var(--error);
+            background: linear-gradient(135deg, #ef4444, #dc2626);
             color: #ffffff;
-            border-radius: 8px;
+            border-radius: 12px;
             transition: all 0.3s ease;
             font-weight: 600;
             font-size: 14px;
-            border: 1px solid var(--error);
-            box-shadow: var(--shadow-sm);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
         }
 
         .logout:hover {
-            background: #dc2626;
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
             transform: scale(1.05);
-            box-shadow: var(--shadow-md);
+            box-shadow: 0 0 30px rgba(239, 68, 68, 0.5);
         }
 
         /* Content Area */
@@ -492,7 +544,7 @@ try {
             max-width: 1200px;
             margin: 0 auto;
             width: 100%;
-            background: var(--bg-primary);
+            background: transparent;
             margin-top: 80px;
         }
 
@@ -602,6 +654,11 @@ try {
     </style>
 </head>
 <body>
+    <!-- Galaxy Video Background -->
+    <video class="galaxy-video" autoplay muted loop>
+        <source src="../assets/images/3194277-hd_1920_1080_30fps.mp4" type="video/mp4">
+    </video>
+
     <!-- Sidebar Backdrop for Mobile -->
     <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
     

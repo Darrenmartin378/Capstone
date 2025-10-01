@@ -20,11 +20,11 @@ function render_teacher_header(string $active, string $teacherName, string $page
             --teal: #00bcd4; /* Professional Teal */
             --success: #4caf50; /* Success Green */
             --error: #f44336; /* Error Red */
-            --bg-primary: #ffffff;
+            --bg-primary:rgb(37, 133, 74);
             --bg-secondary: #f8f9fa;
             --bg-tertiary: #e8f0fe;
-            --text-primary: #202124;
-            --text-secondary: #5f6368;
+            --text-primary:rgb(0, 0, 0);
+            --text-secondary:rgb(255, 255, 255);
             --text-muted: #9aa0a6;
             --border: #dadce0;
             --shadow-sm: 0 1px 2px 0 rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15);
@@ -249,8 +249,8 @@ function render_teacher_header(string $active, string $teacherName, string $page
             text-decoration: none;
         }
         .sidebar-logo img {
-            width: 32px;
-            height: 32px;
+            width: 100px;
+            height: 100px;
             border-radius: 4px;
         }
         .sidebar-logo-text {
@@ -505,7 +505,7 @@ function render_teacher_header(string $active, string $teacherName, string $page
     </div>
     <div class="user-info">
         <button class="notification-icon" title="Notifications">
-            🔔
+            <i class="fas fa-bell"></i>
             <span class="notification-badge">3</span>
         </button>
         <div class="avatar">
@@ -523,32 +523,32 @@ function render_teacher_header(string $active, string $teacherName, string $page
     <nav class="sidebar" id="teacher-sidebar">
         <div class="sidebar-header">
             <a href="teacher_dashboard.php" class="sidebar-logo">
-                <img src="../assets/images/comprelogo.png" alt="CompreLearn">
-                <span class="sidebar-logo-text">CompreLearn</span>
+                <img src="../assets/images/comprelogo2.png" alt="CompreLearn">
+                
             </a>
         </div>
         <div class="sidebar-nav">
             <a href="teacher_dashboard.php" class="<?= $active == 'teacher_dashboard.php' ? 'active' : '' ?>" data-tooltip="Dashboard">
-                <span class="icon">🏠</span> <span class="nav-text">Dashboard</span>
+                <i class="icon fas fa-home"></i> <span class="nav-text">Dashboard</span>
             </a>
             <a href="teacher_content.php" class="<?= $active == 'teacher_content.php' ? 'active' : '' ?>" data-tooltip="Content">
-                <span class="icon">📁</span> <span class="nav-text">Content Management</span>
+                <i class="icon fas fa-folder-open"></i> <span class="nav-text">Content Management</span>
             </a>
             <a href="clean_question_creator.php" class="<?= $active == 'clean_question_creator.php' ? 'active' : '' ?>" data-tooltip="Questions">
-                <span class="icon">❓</span> <span class="nav-text">Questions Management</span>
+                <i class="icon fas fa-question-circle"></i> <span class="nav-text">Questions Management</span>
             </a>
             <a href="teacher_practice_tests.php" class="<?= $active == 'teacher_practice_tests.php' ? 'active' : '' ?>" data-tooltip="Practice Tests">
-                <span class="icon">🔥</span> <span class="nav-text">Practice Sets Management</span>
+                <i class="icon fas fa-fire"></i> <span class="nav-text">Practice Sets Management</span>
             </a>
             
             <a href="teacher_announcements.php" class="<?= $active == 'teacher_announcements.php' ? 'active' : '' ?>" data-tooltip="Announcements">
-                <span class="icon">📣</span> <span class="nav-text">Announcements Management</span>
+                <i class="icon fas fa-bullhorn"></i> <span class="nav-text">Announcements Management</span>
             </a>
             <a href="teacher_analytics.php" class="<?= $active == 'teacher_analytics.php' ? 'active' : '' ?>" data-tooltip="Analytics">
-                <span class="icon">📊</span> <span class="nav-text">Analytics</span>
+                <i class="icon fas fa-chart-line"></i> <span class="nav-text">Analytics</span>
             </a>
             <a href="teacher_account.php" class="<?= $active == 'teacher_account.php' ? 'active' : '' ?>" data-tooltip="Account">
-                <span class="icon">👤</span> <span class="nav-text">Account</span>
+                <i class="icon fas fa-user"></i> <span class="nav-text">Account</span>
             </a>
         </div>
     </nav>

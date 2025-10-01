@@ -7,98 +7,82 @@ $materials = $conn->query("SELECT * FROM reading_materials ORDER BY created_at D
 ob_start();
 ?>
 <style>
-    .card {
-        background: var(--card);
-        border: 2px solid #d9f2ff;
-        border-radius: 18px;
-        box-shadow: 0 10px 20px rgba(43,144,217,.15);
-        margin: 18px 0;
+    /* Header similar to questions page */
+    .materials-header { margin-bottom: 12px; }
+    .materials-header h1 { color:#f1f5f9; font-weight:900; margin:0 0 6px 0; }
+    .materials-header p { margin:0; color: rgba(241,245,249,.85); }
+
+    /* Grid like question cards */
+    .materials-grid { 
+        display:grid; 
+        grid-template-columns: repeat(3, 1fr); 
+        gap:24px; 
+        justify-content:start; 
+        justify-items:stretch; 
+        margin-bottom:24px; 
+    }
+    @media (max-width: 900px) { .materials-grid { grid-template-columns: 1fr; } }
+
+    .material-card {
+        position: relative;
+        background: rgba(15, 23, 42, 0.85);
+        padding: 22px;
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(139, 92, 246, 0.2);
+        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+        border: 1px solid rgba(139, 92, 246, 0.3);
         overflow: hidden;
+        backdrop-filter: blur(12px);
     }
-    .card-header {
-        padding: 14px 16px;
-        background: linear-gradient(90deg,#e8f7ff,#f0fff6);
-        border-bottom: 1px solid var(--line);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-weight: 700;
-        color: #17415e;
+    .material-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(139, 92, 246, 0.4), 0 0 20px rgba(139, 92, 246, 0.2);
+        border-color: rgba(139, 92, 246, 0.5);
     }
-    .card-body {
-        padding: 16px;
-    }
-    .grid {
-        display: grid;
-        gap: 12px;
-    }
-    .grid-2 {
-        grid-template-columns: 1fr 1fr;
-    }
-    .muted {
-        color: var(--muted);
-        font-size: 13px;
-    }
+    .material-title { font-size: 20px; font-weight: 800; color:#f1f5f9; margin:0 0 8px 0; }
+    .material-meta { font-size:13px; color:#9aa4b2; margin-bottom:12px; }
+    .material-actions { margin-top: 14px; }
+
+    .muted { color: rgba(241, 245, 249, 0.6); font-size: 13px; }
     .btn {
-        border: none;
+        border: 1px solid rgba(139, 92, 246, 0.5);
         padding: 10px 14px;
         border-radius: 12px;
         cursor: pointer;
         color: #fff;
         font-weight: 700;
-        box-shadow: 0 6px 14px rgba(30,144,255,.18);
+        box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
         text-decoration: none;
+        backdrop-filter: blur(10px);
         display: inline-block;
     }
-    .btn-primary {
-        background: linear-gradient(180deg, var(--primary), #5fb4ff);
-    }
-    .btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 16px rgba(30,144,255,.25);
-    }
-    @media (max-width: 900px) {
-        .grid-2 {
-            grid-template-columns: 1fr;
-        }
-    }
+    .btn-primary { background: linear-gradient(180deg, var(--primary), #5fb4ff); }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(30,144,255,.25); }
 </style>
 
-<div class="card">
-    <div class="card-header">
-        <strong>Instructional Material Repository</strong> 
-        <span class="emoji" aria-hidden="true">📗✨</span>
+<div class="materials-header">
+    <h1><i class="fas fa-book"></i> Available Materials</h1>
+    <p>Browse instructional materials and resources</p>
     </div>
-    <div class="card-body">
-        <div class="grid grid-2">
-            <?php if ($materials && $materials->num_rows > 0): while ($m = $materials->fetch_assoc()): ?>
-                <div class="card" style="margin:0; border-color:#d7ecff; box-shadow:0 6px 12px rgba(43,144,217,.12);">
-                    <div class="card-header" style="justify-content:space-between;">
-                        <span><?php echo h($m['title']); ?> 📘</span>
-                        <span class="muted">Updated: <?php echo h(date('M j, Y', strtotime($m['updated_at']))); ?></span>
-                    </div>
-                    <div class="card-body">
-                        
-                        <div style="margin-top:8px; padding:12px; background:#f8f9fa; border-radius:8px; text-align:center; color:#6c757d;">
-                            <p>📄 Click "View Full Material" to see the content</p>
-                        </div>
-                        <div style="margin-top: 12px;">
-                            <button class="btn btn-primary view-material-btn" 
-                                    data-title="<?php echo htmlspecialchars($m['title']); ?>"
-                                    data-content="<?php echo htmlspecialchars($m['content']); ?>"
-                                    data-theme="<?php echo htmlspecialchars($m['theme_settings']); ?>">
-                                View Full Material
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            <?php endwhile; else: ?>
-                <div class="card" style="text-align: center; padding: 40px;">
-                    <p class="muted">No materials available yet.</p>
-                </div>
-            <?php endif; ?>
+<div class="materials-grid">
+    <?php if ($materials && $materials->num_rows > 0): while ($m = $materials->fetch_assoc()): ?>
+        <div class="material-card" data-material-id="<?php echo (int)$m['id']; ?>">
+            <div class="material-title"><?php echo h($m['title']); ?></div>
+            <div class="material-meta">Uploaded: <?php echo h(date('M j, Y g:ia', strtotime($m['created_at'] ?? $m['updated_at']))); ?></div>
+            <div class="material-actions">
+                <button class="btn btn-primary view-material-btn" 
+                        data-title="<?php echo htmlspecialchars($m['title']); ?>"
+                        data-content="<?php echo htmlspecialchars($m['content']); ?>"
+                        data-theme="<?php echo htmlspecialchars($m['theme_settings']); ?>">
+                    View Full Material
+                </button>
+            </div>
         </div>
-    </div>
+    <?php endwhile; else: ?>
+        <div class="material-card" style="text-align:center; padding: 40px;">
+            <h3 style="margin:0; color:#f1f5f9;">No Materials Available</h3>
+        </div>
+    <?php endif; ?>
 </div>
 
 <!-- PDF Viewer Modal -->

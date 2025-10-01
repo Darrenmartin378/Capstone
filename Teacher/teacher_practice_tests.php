@@ -15,13 +15,13 @@ render_teacher_header('teacher_practice_tests.php', $teacherName, 'Practice Test
   <div class="content-header">
     <h1 style="margin:0"><i class="fas fa-bolt"></i> Practice Tests (Warm-Up)</h1>
     <p style="margin:6px 0 0; color:#6b7280">This page is currently under construction.</p>
-  </div>
-  <div class="card">
+        </div>
+    <div class="card">
     <div style="font-size:22px; font-weight:800; color:#111827; margin-bottom:8px;">Coming Soon</div>
     <p style="color:#6b7280; margin-bottom:14px;">We're setting up the Warm‑Up practice creator. Check back shortly.</p>
     <span class="badge"><i class="fas fa-tools"></i> In progress</span>
-  </div>
-</div>
+        </div>
+    </div>
 </body>
 </html>
 

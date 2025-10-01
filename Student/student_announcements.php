@@ -27,10 +27,10 @@ $pageTitle = 'Announcements';
 ob_start();
 ?>
 <style>
-.ann-card{border:1px solid #e5e7eb;border-radius:12px;margin:12px 0;overflow:hidden;background:#fff}
-.ann-head{padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center}
-.ann-body{padding:14px;white-space:pre-line;color:#374151}
-.muted{color:#6b7280;font-size:12px}
+.ann-card{border:1px solid rgba(139, 92, 246, 0.3);border-radius:12px;margin:12px 0;overflow:hidden;background:rgba(15, 23, 42, 0.85);backdrop-filter:blur(12px);box-shadow:0 0 20px rgba(139, 92, 246, 0.2)}
+.ann-head{padding:12px 16px;background:linear-gradient(90deg, rgba(139, 92, 246, 0.2), rgba(168, 85, 247, 0.15));border-bottom:1px solid rgba(139, 92, 246, 0.3);display:flex;justify-content:space-between;align-items:center;color:#f1f5f9;text-shadow:0 0 10px rgba(139, 92, 246, 0.3)}
+.ann-body{padding:14px;white-space:pre-line;color:#e1e5f2}
+.muted{color:rgba(241, 245, 249, 0.6);font-size:12px}
 </style>
 
 <div class="card">

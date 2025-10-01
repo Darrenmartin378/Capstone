@@ -1121,7 +1121,7 @@ ob_start();
     <div id="parent-form-container" class="form-container" style="display: none;">
         <div class="form-header">
             <h3 id="form-title">Add New Parent</h3>
-            <button id="close-form-btn" class="close-form-btn">&times;</button>
+            <button id="close-form-btn" class="close-form-btn"></button>
         </div>
         <form id="parent-form" method="POST">
             <?php echo csrf_token(); ?>

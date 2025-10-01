@@ -56,24 +56,24 @@ ob_start();
 ?>
 
 <style>
-.analytics-shell { background:#fff; padding:20px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.08); border:1px solid #eef2f7; }
+.analytics-shell { background: rgba(15, 23, 42, 0.85); padding:20px; border-radius:16px; box-shadow:0 0 40px rgba(139, 92, 246, 0.3); border:1px solid rgba(139, 92, 246, 0.3); backdrop-filter: blur(12px); }
 .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:16px; }
-.stat { background:linear-gradient(135deg,#fff,#f8fafc); border:1px solid #e5e7eb; border-radius:16px; padding:16px; text-align:center; box-shadow:0 8px 16px rgba(0,0,0,.06); }
-.stat:nth-child(1){ background:linear-gradient(135deg,#ecfccb,#f0fdf4); }
-.stat:nth-child(2){ background:linear-gradient(135deg,#e0f2fe,#eef2ff); }
-.stat:nth-child(3){ background:linear-gradient(135deg,#fde68a,#fff7ed); }
+.stat { background: rgba(30, 41, 59, 0.8); border:1px solid rgba(139, 92, 246, 0.3); border-radius:16px; padding:16px; text-align:center; box-shadow:0 0 20px rgba(139, 92, 246, 0.2); backdrop-filter: blur(10px); }
+.stat:nth-child(1){ background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(168, 85, 247, 0.1)); }
+.stat:nth-child(2){ background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(139, 92, 246, 0.1)); }
+.stat:nth-child(3){ background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(168, 85, 247, 0.1)); }
 .table { width:100%; border-collapse:collapse; }
-.table thead th{ background:linear-gradient(90deg,#eef2ff,#e0f2fe); color:#111827; }
-.table th, .table td { padding:12px 10px; border-bottom:1px solid #e5e7eb; text-align:left; }
+.table thead th{ background: linear-gradient(90deg, rgba(139, 92, 246, 0.2), rgba(34, 211, 238, 0.15)); color: #f1f5f9; }
+.table th, .table td { padding:12px 10px; border-bottom:1px solid rgba(139, 92, 246, 0.2); text-align:left; color: #e1e5f2; }
 .badge-ok{ background:#dcfce7; color:#065f46; padding:4px 10px; border-radius:9999px; font-size:12px; font-weight:700; border:1px solid #86efac; }
 .bar { height:12px; background:#eef2f7; border-radius:9999px; overflow:hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,.06); }
 .bar > span{ display:block; height:100%; width:0; border-radius:9999px; }
-.chart-card{ background:linear-gradient(180deg,#fafaff,#f5faff); border:1px solid #e5e7eb; border-radius:16px; padding:16px; margin-bottom:16px; box-shadow:0 8px 16px rgba(0,0,0,.05); }
-.perf-banner{ display:flex; align-items:center; justify-content:space-between; border:1px solid #e5e7eb; border-radius:16px; padding:14px 16px; margin-bottom:16px; }
-.perf-banner.ok{ background:linear-gradient(90deg,#ecfccb,#dcfce7); }
-.perf-banner.good{ background:linear-gradient(90deg,#e0f2fe,#dbeafe); }
-.perf-banner.mid{ background:linear-gradient(90deg,#fef9c3,#fde68a); }
-.perf-banner.warn{ background:linear-gradient(90deg,#fee2e2,#ffe4e6); }
+.chart-card{ background: rgba(30, 41, 59, 0.8); border:1px solid rgba(139, 92, 246, 0.3); border-radius:16px; padding:16px; margin-bottom:16px; box-shadow:0 0 25px rgba(139, 92, 246, 0.2); backdrop-filter: blur(10px); }
+.perf-banner{ display:flex; align-items:center; justify-content:space-between; border:1px solid rgba(139, 92, 246, 0.3); border-radius:16px; padding:14px 16px; margin-bottom:16px; backdrop-filter: blur(10px); }
+.perf-banner.ok{ background: linear-gradient(90deg, rgba(139, 92, 246, 0.15), rgba(34, 197, 94, 0.1)); }
+.perf-banner.good{ background: linear-gradient(90deg, rgba(34, 211, 238, 0.15), rgba(59, 130, 246, 0.1)); }
+.perf-banner.mid{ background: linear-gradient(90deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.1)); }
+.perf-banner.warn{ background: linear-gradient(90deg, rgba(239, 68, 68, 0.15), rgba(244, 63, 94, 0.1)); }
 .perf-chip{ padding:8px 12px; border-radius:9999px; font-weight:800; font-size:12px; }
 .perf-chip.ok{ background:#dcfce7; color:#065f46; border:1px solid #86efac; }
 .perf-chip.good{ background:#dbeafe; color:#1e40af; border:1px solid #93c5fd; }
@@ -89,8 +89,8 @@ ob_start();
     <div class="analytics-shell">
         <div class="perf-banner <?php echo $perfTone; ?>">
             <div>
-                <div style="font-weight:800;color:#111827;">Overall Performance</div>
-                <small style="color:#6b7280;">Based on average score across completed sets</small>
+                <div style="font-weight:800;color:#f1f5f9;text-shadow: 0 0 10px rgba(139, 92, 246, 0.3);">Overall Performance</div>
+                <small style="color:rgba(241, 245, 249, 0.7);">Based on average score across completed sets</small>
             </div>
             <div>
                 <span class="perf-chip <?php echo $perfTone; ?>"><?php echo h($perfLabel); ?> — <?php echo number_format($avgPct,1); ?>%</span>
@@ -101,16 +101,16 @@ ob_start();
         </div>
         <div class="stat-grid">
             <div class="stat">
-                <div style="font-size:28px; font-weight:800; color:#111827;"><?php echo number_format($avgPct,1); ?>%</div>
-                <div style="color:#6b7280;">Average Score</div>
+                <div style="font-size:28px; font-weight:800; color:#f1f5f9; text-shadow: 0 0 15px rgba(139, 92, 246, 0.5);"><?php echo number_format($avgPct,1); ?>%</div>
+                <div style="color:rgba(241, 245, 249, 0.7);">Average Score</div>
             </div>
             <div class="stat">
-                <div style="font-size:28px; font-weight:800; color:#111827;"><?php echo (int)$completed; ?></div>
-                <div style="color:#6b7280;">Sets Completed</div>
+                <div style="font-size:28px; font-weight:800; color:#f1f5f9; text-shadow: 0 0 15px rgba(139, 92, 246, 0.5);"><?php echo (int)$completed; ?></div>
+                <div style="color:rgba(241, 245, 249, 0.7);">Sets Completed</div>
             </div>
             <div class="stat">
-                <div style="font-size:28px; font-weight:800; color:#111827;"><?php echo (int)count($rows); ?></div>
-                <div style="color:#6b7280;">Total Sets</div>
+                <div style="font-size:28px; font-weight:800; color:#f1f5f9; text-shadow: 0 0 15px rgba(139, 92, 246, 0.5);"><?php echo (int)count($rows); ?></div>
+                <div style="color:rgba(241, 245, 249, 0.7);">Total Sets</div>
             </div>
         </div>
 

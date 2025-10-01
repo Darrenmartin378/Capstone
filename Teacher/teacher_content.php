@@ -5,6 +5,14 @@ require_once __DIR__ . '/includes/notification_helper.php';
 $edit_mode = false;
 $edit_material = null;
 
+// Ensure reading_materials has section_id column (migration-safe)
+try {
+    $chk = $conn->query("SHOW COLUMNS FROM reading_materials LIKE 'section_id'");
+    if ($chk && $chk->num_rows === 0) {
+        $conn->query("ALTER TABLE reading_materials ADD COLUMN section_id INT NULL AFTER teacher_id");
+    }
+} catch (Throwable $e) { /* ignore */ }
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -17,18 +25,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $title = $_POST['title'] ?? '';
         $content = $_POST['content'] ?? '';
         $theme_settings = json_encode(['bg_color' => '#ffffff']);
+        $section_id = isset($_POST['section_id']) ? (int)$_POST['section_id'] : null;
 
         if ($title && $content && $teacher_id) {
             if (!$conn) {
                 throw new Exception('Database connection failed');
             }
             
-            $stmt = $conn->prepare("INSERT INTO reading_materials (teacher_id, title, content, theme_settings, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())");
+            $stmt = $conn->prepare("INSERT INTO reading_materials (teacher_id, section_id, title, content, theme_settings, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
             if (!$stmt) {
                 throw new Exception('Failed to prepare statement: ' . $conn->error);
             }
             
-            $stmt->bind_param("isss", $teacher_id, $title, $content, $theme_settings);
+            $stmt->bind_param("iisss", $teacher_id, $section_id, $title, $content, $theme_settings);
             if (!$stmt->execute()) {
                 throw new Exception('Failed to execute statement: ' . $stmt->error);
             }
@@ -67,10 +76,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $title = $_POST['title'] ?? '';
         $content = $_POST['content'] ?? '';
         $theme_settings = json_encode(['bg_color' => '#ffffff']);
+        $section_id = isset($_POST['section_id']) ? (int)$_POST['section_id'] : null;
 
         if ($id && $title && $content && $teacher_id) {
-            $stmt = $conn->prepare("UPDATE reading_materials SET title = ?, content = ?, theme_settings = ?, updated_at = NOW() WHERE id = ? AND teacher_id = ?");
-            $stmt->bind_param("sssii", $title, $content, $theme_settings, $id, $teacher_id);
+            $stmt = $conn->prepare("UPDATE reading_materials SET section_id = ?, title = ?, content = ?, theme_settings = ?, updated_at = NOW() WHERE id = ? AND teacher_id = ?");
+            $stmt->bind_param("isssii", $section_id, $title, $content, $theme_settings, $id, $teacher_id);
             $stmt->execute();
             $stmt->close();
             // Redirect to prevent form resubmission
@@ -154,15 +164,18 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
     }
 }
 
-// Get all materials for this teacher
+// Get all materials for this teacher (with optional section filter)
 $materials = [];
-$stmt = $conn->prepare("SELECT * FROM reading_materials WHERE teacher_id = ? ORDER BY created_at DESC");
-$stmt->bind_param("i", $_SESSION['teacher_id']);
+$filterSecId = (int)($_GET['sec'] ?? 0);
+$sql = "SELECT rm.*, s.name AS section_name FROM reading_materials rm LEFT JOIN sections s ON s.id = rm.section_id WHERE rm.teacher_id = ?";
+if ($filterSecId > 0) { $sql .= " AND rm.section_id = ?"; }
+$sql .= " ORDER BY rm.created_at DESC";
+$stmt = $conn->prepare($sql);
+if ($filterSecId > 0) { $stmt->bind_param("ii", $_SESSION['teacher_id'], $filterSecId); }
+else { $stmt->bind_param("i", $_SESSION['teacher_id']); }
 $stmt->execute();
 $result = $stmt->get_result();
-while ($row = $result->fetch_assoc()) {
-    $materials[] = $row;
-}
+while ($row = $result->fetch_assoc()) { $materials[] = $row; }
 $stmt->close();
 
 // Render header after all POST handling is complete
@@ -206,9 +219,28 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
     <!-- Google Docs-Style Editor -->
     <div class="docs-editor-container">
         <div class="docs-header">
-            <div class="docs-title-bar">
-                <div class="docs-title-input">
+        <div class="docs-title-bar">
+                <div class="docs-title-input" style="display:flex; gap:12px; align-items:center;">
                     <input type="text" id="docs-title" placeholder="Untitled document" value="<?php echo $edit_mode ? htmlspecialchars($edit_material['title']) : ''; ?>" required>
+                    <?php
+                    // Fetch sections for this teacher
+                    $teacherSections = [];
+                    try {
+                        $st = $conn->prepare("SELECT s.id, s.name FROM teacher_sections ts JOIN sections s ON s.id = ts.section_id WHERE ts.teacher_id = ?");
+                        $st->bind_param('i', $_SESSION['teacher_id']);
+                        $st->execute();
+                        $res = $st->get_result();
+                        while ($row = $res->fetch_assoc()) { $teacherSections[] = $row; }
+                        $st->close();
+                    } catch (Throwable $e) { /* ignore */ }
+                    $selectedSection = $edit_mode ? (int)($edit_material['section_id'] ?? 0) : 0;
+                    ?>
+                    <select id="material-section" name="section_id" style="border:1px solid #dadce0; border-radius:6px; padding:8px; background:#fff;">
+                        <option value="">All Sections</option>
+                        <?php foreach ($teacherSections as $sec): ?>
+                            <option value="<?= (int)$sec['id']; ?>" <?= $selectedSection == (int)$sec['id'] ? 'selected' : '' ?>><?= htmlspecialchars($sec['name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
         </div>
                 <div class="docs-actions">
                     <div class="collaboration-status" id="collaborationStatus">
@@ -244,47 +276,75 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
                         <?php endif; ?>
             <input type="hidden" name="title" id="hidden-title">
             <input type="hidden" name="content" id="hidden-content">
+            <input type="hidden" name="section_id" id="hidden-section">
                     </form>
                 </div>
                 
+    <?php
+    // Sections for filter dropdown
+    $teacherSectionsList = [];
+    try {
+        $stf = $conn->prepare("SELECT s.id, s.name FROM teacher_sections ts JOIN sections s ON s.id = ts.section_id WHERE ts.teacher_id = ?");
+        $stf->bind_param('i', $_SESSION['teacher_id']);
+        $stf->execute();
+        $rf = $stf->get_result();
+        while ($row = $rf->fetch_assoc()) { $teacherSectionsList[] = $row; }
+        $stf->close();
+    } catch (Throwable $e) { /* ignore */ }
+    ?>
     <div class="content-section">
-        <div class="section-header">
+        <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
             <h2>Your Materials</h2>
+            <form method="get" style="display:flex;align-items:center;gap:8px;">
+                <label for="sec" style="color:#5f6368;font-size:13px;">Filter by section:</label>
+                <select name="sec" id="sec" onchange="this.form.submit()" style="border:1px solid #dadce0;border-radius:6px;padding:6px 8px;background:#fff;">
+                    <option value="0">All</option>
+                    <?php foreach ($teacherSectionsList as $sec): ?>
+                        <option value="<?= (int)$sec['id']; ?>" <?= $filterSecId==(int)$sec['id']?'selected':'' ?>><?= htmlspecialchars($sec['name']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </form>
         </div>
 
-        <div class="materials-grid">
-            <?php if (empty($materials)): ?>
-                <div class="no-materials">
-                    <p>No materials uploaded yet.</p>
-                </div>
-            <?php else: ?>
-                <?php foreach ($materials as $material): ?>
-                    <div class="material-card">
-                        <div class="material-header">
-                            <h3><?php echo htmlspecialchars($material['title']); ?></h3>
-                            <div class="material-actions">
-                                <button type="button" class="btn btn-sm btn-secondary toggle-content-btn" onclick="toggleContent(<?php echo $material['id']; ?>)">
-                                    <span class="toggle-text">View Content</span>
-                                    <span class="toggle-icon">▼</span>
-                                </button>
-                                <a href="?edit=<?php echo $material['id']; ?>" class="btn btn-sm btn-primary">Edit</a>
-                                <form method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this material?')">
-                                    <input type="hidden" name="action" value="delete_material">
-                                    <input type="hidden" name="id" value="<?php echo $material['id']; ?>">
-                                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                                </form>
-                            </div>
-                        </div>
-                        <div class="material-content" id="content-<?php echo $material['id']; ?>" style="display: none;">
-                            <?php echo $material['content']; ?>
-                        </div>
-                        <div class="material-footer">
-                            <small>Created: <?php echo date('M j, Y', strtotime($material['created_at'])); ?></small>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </div>
+        <?php if (empty($materials)): ?>
+            <div class="no-materials" style="text-align:center;padding:24px;color:#5f6368;">No materials uploaded yet.</div>
+        <?php else: ?>
+            <table class="mat-table" style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+                <thead style="background:#f8f9fa;">
+                    <tr>
+                        <th style="text-align:left;padding:12px;border-bottom:1px solid #e5e7eb;">Title</th>
+                        <th style="text-align:left;padding:12px;border-bottom:1px solid #e5e7eb;">Section</th>
+                        <th style="text-align:left;padding:12px;border-bottom:1px solid #e5e7eb;">Created</th>
+                        <th style="text-align:left;padding:12px;border-bottom:1px solid #e5e7eb;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($materials as $material): ?>
+                        <tr>
+                            <td style="padding:10px 12px;"><?= htmlspecialchars($material['title']); ?></td>
+                            <td style="padding:10px 12px;"><span class="section-badge"><?= htmlspecialchars($material['section_name'] ?? 'All'); ?></span></td>
+                            <td style="padding:10px 12px;"><span class="date-chip"><?= date('M j, Y', strtotime($material['created_at'])); ?></span></td>
+                            <td style="padding:10px 12px;">
+                                <div class="action-group">
+                                    <button type="button" class="icon-btn secondary toggle-content-btn" title="View" onclick="toggleContent(<?= $material['id']; ?>, this)"><i class="fas fa-eye"></i></button>
+                                    <a href="?edit=<?= $material['id']; ?>" class="icon-btn primary" title="Edit"><i class="fas fa-pen"></i></a>
+                                    <form method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this material?')">
+                                        <input type="hidden" name="action" value="delete_material">
+                                        <input type="hidden" name="id" value="<?= $material['id']; ?>">
+                                        <button type="submit" class="icon-btn danger" title="Delete"><i class="fas fa-trash"></i></button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr id="row-content-<?= $material['id']; ?>" style="display:none;">
+                            <td colspan="4" style="padding:14px 12px;background:#fafafa;border-top:1px solid #f0f0f0;">
+                                <div class="material-content" id="content-<?= $material['id']; ?>"><?php echo $material['content']; ?></div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -863,6 +923,16 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
     font-size: 13px;
 }
 
+/* Inline actions (View/Edit/Delete) */
+.action-group { display: inline-flex; align-items: center; gap: 8px; }
+.action-group form { margin: 0; display: inline; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; height: 32px; min-width: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; color: #111827; cursor: pointer; text-decoration: none; font-weight: 600; }
+.icon-btn i { pointer-events: none; }
+.icon-btn.secondary { background: #f8fafc; }
+.icon-btn.primary { background: #1a73e8; border-color: #1a73e8; color: #fff; }
+.icon-btn.danger { background: #e11d48; border-color: #e11d48; color: #fff; }
+.icon-btn:hover { filter: brightness(1.05); }
+
 .toggle-content-btn:hover {
     background: #f8f9fa;
     border-color: #5f6368;
@@ -900,6 +970,19 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
     color: #5f6368;
     font-size: 12px;
 }
+
+/* Enhanced table colors */
+.mat-table { border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background: #ffffff; box-shadow: 0 4px 14px rgba(16,24,40,0.06); }
+.mat-table thead { background: linear-gradient(90deg, #4f46e5 0%, #1d4ed8 100%) !important; }
+.mat-table thead th { color: #ffffff !important; border-bottom: 1px solid rgba(255,255,255,0.18) !important; letter-spacing: .2px; font-weight: 700; }
+.mat-table tbody tr:nth-child(even) { background: #f7f9ff; }
+.mat-table tbody tr:hover { background: #eef2ff; transition: background-color .2s ease; }
+.mat-table td { border-bottom: 1px solid #eef2ff; }
+.mat-table tr:last-child td { border-bottom: none; }
+
+/* Badges */
+.section-badge { display:inline-block; padding:4px 10px; border-radius:9999px; background: linear-gradient(90deg,#9333ea,#3b82f6); color:#fff; font-weight:700; font-size:12px; box-shadow: 0 2px 6px rgba(59,130,246,0.25); }
+.date-chip { display:inline-block; padding:4px 10px; border-radius:8px; background:#eef2ff; color:#1d4ed8; font-weight:600; border:1px solid #dbeafe; }
 
 /* Flash Messages */
 .flash {
@@ -1252,6 +1335,30 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.7.2/tinymce.min.js"></script>
+<script>
+// TinyMCE offline-first loader: try local copies, fallback to CDN
+(function(){
+    function load(src, cb){
+        var s = document.createElement('script');
+        s.src = src;
+        s.onload = cb || function(){};
+        document.head.appendChild(s);
+    }
+    if (typeof window.tinymce === 'undefined') {
+        // Try common local paths first
+        load('../assets/vendor/tinymce/js/tinymce/tinymce.min.js', function(){
+            if (typeof window.tinymce === 'undefined') {
+                load('../assets/vendor/tinymce/tinymce.min.js', function(){
+                    // Last resort: CDN
+                    if (typeof window.tinymce === 'undefined') {
+                        load('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.7.2/tinymce.min.js');
+                    }
+                });
+            }
+        });
+    }
+})();
+</script>
 
 <script>
 // TinyMCE Google Docs-like Editor Implementation
@@ -1266,6 +1373,7 @@ let editorInstance = null;
 // Initialize Complete TinyMCE Editor
 function initializeTinyMCE() {
     tinymce.init({
+        license_key: 'gpl',
         selector: '#docs-editor',
         height: 600,
         menubar: true,
@@ -1882,8 +1990,23 @@ function exportDocument() {
 document.addEventListener('DOMContentLoaded', function() {
     const titleInput = document.getElementById('docs-title');
     
-    // Initialize TinyMCE
-    initializeTinyMCE();
+    // Initialize TinyMCE (wait for offline fallback if needed)
+    (function startEditorWhenReady(){
+        if (window.tinymce && typeof window.tinymce.init === 'function') {
+            initializeTinyMCE();
+        } else {
+            let tries = 0;
+            const timer = setInterval(function(){
+                if (window.tinymce && typeof window.tinymce.init === 'function') {
+                    clearInterval(timer);
+                    initializeTinyMCE();
+                } else if (++tries > 50) { // ~5s timeout
+                    clearInterval(timer);
+                    console.warn('TinyMCE not loaded. Check offline path at ../assets/vendor/tinymce/');
+                }
+            }, 100);
+        }
+    })();
     
     // Handle successful form submission
     const urlParams = new URLSearchParams(window.location.search);
@@ -2307,6 +2430,8 @@ function saveDocument() {
     // Update hidden form fields
     document.getElementById('hidden-title').value = title;
     document.getElementById('hidden-content').value = content;
+    var sec = document.getElementById('material-section');
+    document.getElementById('hidden-section').value = sec ? (sec.value || '') : '';
     
     // Debug: Log form data before submission
     console.log('Form data being submitted:');
@@ -2525,16 +2650,19 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Toggle content visibility
-function toggleContent(materialId) {
+function toggleContent(materialId, el) {
     const content = document.getElementById('content-' + materialId);
-    const button = event.target.closest('.toggle-content-btn');
+    const row = document.getElementById('row-content-' + materialId);
+    const button = (el && el.closest) ? el.closest('.toggle-content-btn') : (event && event.target && event.target.closest ? event.target.closest('.toggle-content-btn') : null);
+    // Support both text button and icon-only button
     const toggleText = button.querySelector('.toggle-text');
     const toggleIcon = button.querySelector('.toggle-icon');
     
-    if (content.style.display === 'none') {
+    const isHidden = row ? (row.style.display === 'none' || row.style.display === '') : (content.style.display === 'none' || content.style.display === '');
+    if (isHidden) {
         // Show content
-        content.style.display = 'block';
-        toggleText.textContent = 'Hide Content';
+        if (row) { row.style.display = 'table-row'; } else { content.style.display = 'block'; }
+        if (toggleText) toggleText.textContent = 'Hide Content';
         button.classList.add('expanded');
         
         // Smooth slide down animation
@@ -2552,8 +2680,8 @@ function toggleContent(materialId) {
         content.style.transform = 'translateY(-10px)';
         
         setTimeout(() => {
-            content.style.display = 'none';
-            toggleText.textContent = 'View Content';
+            if (row) { row.style.display = 'none'; } else { content.style.display = 'none'; }
+            if (toggleText) toggleText.textContent = 'View Content';
             button.classList.remove('expanded');
         }, 300);
     }

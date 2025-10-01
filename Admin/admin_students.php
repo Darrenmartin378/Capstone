@@ -962,7 +962,7 @@ ob_start();
     <div id="student-form-container" class="form-container" style="display: none;">
         <div class="form-header">
             <h3 id="form-title">Add New Student</h3>
-            <button id="close-form-btn" class="close-form-btn">&times;</button>
+            <button id="close-form-btn" class="close-form-btn"></button>
         </div>
         <form id="student-form" method="POST">
             <?php echo csrf_token(); ?>

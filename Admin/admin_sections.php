@@ -1236,7 +1236,7 @@ ob_start();
     <div id="section-form-container" class="form-container" style="display: none;">
         <div class="form-header">
             <h3 id="form-title">Add New Section</h3>
-            <button id="close-form-btn" class="close-form-btn">&times;</button>
+            <button id="close-form-btn" class="close-form-btn"></button>
         </div>
         <form id="section-form" method="POST">
             <?php echo csrf_token(); ?>
