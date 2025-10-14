@@ -50,11 +50,8 @@ render_teacher_header('archived_question_sets.php', $teacherName, 'Archived Ques
     <div class="archived-header">
         <h1 style="margin:0;">Archived Question Sets</h1>
         <div style="display:flex;gap:8px;align-items:center;">
-<<<<<<< HEAD
             <button class="btn btn-back" onclick="window.location.href='question_bank.php'">
-=======
-            <button class="btn btn-back" onclick="window.location.href='clean_question_creator.php'">
->>>>>>> 2fcad03c27dbe56cf4dba808f3f13a749f478b16
+
                 <i class="fas fa-arrow-left"></i> Back to Question Bank
             </button>
         </div>
