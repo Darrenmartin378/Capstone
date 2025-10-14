@@ -1,0 +1,3 @@
+{"timestamp":"2025-10-12 16:36:06","action":"ollama_question_generation","user_id":5,"data":{"material_title":"Types of Figurative Language","num_questions":5,"question_types":["mcq","matching","essay"],"difficulty":"medium"}}
+{"timestamp":"2025-10-12 17:11:34","action":"ollama_question_generation","user_id":5,"data":{"material_title":"Types of Figurative Language","num_questions":3,"question_types":["mcq"],"difficulty":"medium"}}
+{"timestamp":"2025-10-12 18:04:16","action":"ollama_question_generation","user_id":5,"data":{"material_title":"Types of Figurative Language","num_questions":3,"question_types":["mcq"],"difficulty":"medium"}}

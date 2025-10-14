@@ -346,6 +346,16 @@ function render_teacher_header(string $active, string $teacherName, string $page
             position: relative;
         }
 
+        /* Hide AI and Content (Reading Materials) UI across teacher pages */
+        label[for="ai_content_dropdown"],
+        #ai_content_dropdown,
+        #ai_content_panel,
+        #ai_type_select,
+        #btnFetchAI,
+        #ai_reco_panel {
+            display: none !important;
+        }
+
         /* Universal Flash Message Styles */
         .flash {
             background: #fde68a;
@@ -461,18 +471,43 @@ function render_teacher_header(string $active, string $teacherName, string $page
             var sidebar = document.getElementById('teacher-sidebar');
             sidebar.classList.toggle('collapsed');
             
-            // Save state to localStorage
-            localStorage.setItem('teacherSidebarCollapsed', sidebar.classList.contains('collapsed'));
+            // Sidebar state saving disabled
         }
 
-        // Restore sidebar state on page load
+        // Restore sidebar state on page load - disabled
         document.addEventListener('DOMContentLoaded', function() {
             var sidebar = document.getElementById('teacher-sidebar');
-            var isCollapsed = localStorage.getItem('teacherSidebarCollapsed') === 'true';
+            // Sidebar state restoration disabled
+
+            // Also remove the parent container of the AI/Reading Materials inputs if present
+            try {
+                var aiLabel = document.querySelector('label[for="ai_content_dropdown"]');
+                if (aiLabel && aiLabel.parentElement) {
+                    var container = aiLabel.closest('.form-group') || aiLabel.parentElement;
+                    if (container) {
+                        container.style.display = 'none';
+                    }
+                }
+            } catch (e) { /* silently ignore */ }
             
-            if (isCollapsed) {
-                sidebar.classList.add('collapsed');
-            }
+            // Clear any existing autosave data from localStorage/sessionStorage
+            try {
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.startsWith('teacher_autosave_') || key.startsWith('question_form_') || key.startsWith('practice_form_') || key.startsWith('form_'))) {
+                        keysToRemove.push(key);
+                    }
+                }
+                keysToRemove.forEach(key => localStorage.removeItem(key));
+                
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    if (key && (key.startsWith('teacher_autosave_') || key.startsWith('question_form_') || key.startsWith('practice_form_') || key.startsWith('form_'))) {
+                        sessionStorage.removeItem(key);
+                    }
+                }
+            } catch (e) { /* silently ignore */ }
         });
 
         // Handle window resize
@@ -534,11 +569,11 @@ function render_teacher_header(string $active, string $teacherName, string $page
             <a href="teacher_content.php" class="<?= $active == 'teacher_content.php' ? 'active' : '' ?>" data-tooltip="Content">
                 <i class="icon fas fa-folder-open"></i> <span class="nav-text">Content Management</span>
             </a>
-            <a href="clean_question_creator.php" class="<?= $active == 'clean_question_creator.php' ? 'active' : '' ?>" data-tooltip="Questions">
-                <i class="icon fas fa-question-circle"></i> <span class="nav-text">Questions Management</span>
+            <a href="clean_question_creator.php" class="<?= $active == 'clean_question_creator.php' ? 'active' : '' ?>" data-tooltip="Assessment">
+                <i class="icon fas fa-question-circle"></i> <span class="nav-text">Assessment Management</span>
             </a>
-            <a href="teacher_practice_tests.php" class="<?= $active == 'teacher_practice_tests.php' ? 'active' : '' ?>" data-tooltip="Practice Tests">
-                <i class="icon fas fa-fire"></i> <span class="nav-text">Practice Sets Management</span>
+            <a href="question_bank.php" class="<?= $active == 'question_bank.php' ? 'active' : '' ?>" data-tooltip="Question Bank">
+                <i class="icon fas fa-database"></i> <span class="nav-text">Question Bank</span>
             </a>
             
             <a href="teacher_announcements.php" class="<?= $active == 'teacher_announcements.php' ? 'active' : '' ?>" data-tooltip="Announcements">

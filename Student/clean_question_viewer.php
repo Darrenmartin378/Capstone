@@ -912,7 +912,7 @@ ob_start();
                     if (!empty($openAt)) { $isLocked = (strtotime($openAt) > time()); }
                     $timer = (int)($set['timer_minutes'] ?? 0);
                 ?>
-                <div class="set-card" data-set-id="<?php echo (int)$set['id']; ?>" data-open-at="<?php echo htmlspecialchars($openAt ?? ''); ?>" data-open-ts="<?php echo $openAt ? (int)@strtotime($openAt) : 0; ?>" data-duration="<?php echo max(0,(int)$timer*60); ?>">
+                <div id="set-<?php echo (int)$set['id']; ?>" class="set-card" data-set-id="<?php echo (int)$set['id']; ?>" data-open-at="<?php echo htmlspecialchars($openAt ?? ''); ?>" data-open-ts="<?php echo $openAt ? (int)@strtotime($openAt) : 0; ?>" data-duration="<?php echo max(0,(int)$timer*60); ?>">
                     <div class="set-title"><?php echo htmlspecialchars($set['set_title']); ?>
                         <?php if($timer>0): ?><span class="badge timer"><?php echo $timer; ?> mins</span><?php endif; ?>
                         <?php if($timer>0 && !empty($openAt) && strtotime($openAt) <= time()): ?>
@@ -995,6 +995,20 @@ ob_start();
     </div>
 
     <script>
+        // If URL hash points to a specific set (e.g., #set-12), scroll to and accent it
+        (function(){
+            function highlightFromHash(){
+                if (!location.hash) return;
+                var id = location.hash.replace(/^#/, '');
+                var el = document.getElementById(id);
+                if (!el) return;
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.style.boxShadow = '0 0 0 3px rgba(139,92,246,.9), 0 12px 30px rgba(0,0,0,.5)';
+                setTimeout(function(){ el.style.boxShadow=''; }, 2000);
+            }
+            window.addEventListener('hashchange', highlightFromHash);
+            document.addEventListener('DOMContentLoaded', highlightFromHash);
+        })();
         let currentQuestionSetId = null;
         let currentQuestions = [];
         let currentIndex = 0;

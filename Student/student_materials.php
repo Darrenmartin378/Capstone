@@ -70,12 +70,84 @@ ob_start();
             <div class="material-title"><?php echo h($m['title']); ?></div>
             <div class="material-meta">Uploaded: <?php echo h(date('M j, Y g:ia', strtotime($m['created_at'] ?? $m['updated_at']))); ?></div>
             <div class="material-actions">
+                <?php
+                // Build a web-accessible path for the attachment if present
+                $webAttachment = '';
+                $attachmentType = trim((string)($m['attachment_type'] ?? ''));
+                $attachmentName = trim((string)($m['attachment_name'] ?? ''));
+                $attachmentPath = trim((string)($m['attachment_path'] ?? ''));
+                if ($attachmentPath !== '') {
+                    $relativePath = ltrim($attachmentPath, '/\\');
+                    // From Student/ to project root, use ../
+                    $candidate1 = '../' . str_replace('\\', '/', $relativePath);
+                    // Alternative: if only basename is accessible under uploads
+                    $candidate2 = '../uploads/' . basename($relativePath);
+
+                    // Resolve to an existing file on disk to avoid broken links
+                    $projectRoot = dirname(__DIR__);
+                    $abs1 = $projectRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+                    $abs2 = $projectRoot . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . basename($relativePath);
+                    if (file_exists($abs1)) {
+                        $webAttachment = $candidate1;
+                    } elseif (file_exists($abs2)) {
+                        $webAttachment = $candidate2;
+                    } else {
+                        // Fallback to provided path (browser may still resolve it)
+                        $webAttachment = $candidate1;
+                    }
+                }
+                ?>
                 <button class="btn btn-primary view-material-btn" 
                         data-title="<?php echo htmlspecialchars($m['title']); ?>"
                         data-content="<?php echo htmlspecialchars($m['content']); ?>"
-                        data-theme="<?php echo htmlspecialchars($m['theme_settings']); ?>">
+                        data-theme="<?php echo htmlspecialchars($m['theme_settings']); ?>"
+                        data-attachment="<?php echo htmlspecialchars($webAttachment); ?>"
+                        data-attachment-type="<?php echo htmlspecialchars($attachmentType); ?>"
+                        data-attachment-name="<?php echo htmlspecialchars($attachmentName); ?>">
                     View Full Material
                 </button>
+                <?php
+                // Fetch related comprehension question sets linked to this material
+                try {
+                    $relSets = [];
+                    // Ensure link table exists before querying
+                    $chk = $conn->query("SHOW TABLES LIKE 'material_question_links'");
+                    if ($chk && $chk->num_rows > 0) {
+                        $mid = (int)$m['id'];
+                        $studentSectionId = (int)($_SESSION['section_id'] ?? 0);
+                        
+                        // First try to get the question set for the student's current section
+                        if ($studentSectionId > 0) {
+                            $st = $conn->prepare("SELECT qs.id, qs.set_title, qs.created_at FROM material_question_links mql JOIN question_sets qs ON qs.id = mql.question_set_id WHERE mql.material_id = ? AND qs.section_id = ? ORDER BY qs.created_at DESC LIMIT 1");
+                            if ($st) {
+                                $st->bind_param('ii', $mid, $studentSectionId);
+                                $st->execute();
+                                $relSets = $st->get_result()->fetch_all(MYSQLI_ASSOC);
+                            }
+                        }
+                        
+                        // If no set found for student's section, get any set for this material (fallback)
+                        if (empty($relSets)) {
+                            $st = $conn->prepare("SELECT qs.id, qs.set_title, qs.created_at FROM material_question_links mql JOIN question_sets qs ON qs.id = mql.question_set_id WHERE mql.material_id = ? ORDER BY qs.created_at DESC LIMIT 1");
+                            if ($st) {
+                                $st->bind_param('i', $mid);
+                                $st->execute();
+                                $relSets = $st->get_result()->fetch_all(MYSQLI_ASSOC);
+                            }
+                        }
+                    }
+                } catch (Throwable $e) { $relSets = []; }
+                if (!empty($relSets)):
+                ?>
+                    <div class="muted" style="margin-top:10px;">Related Comprehension Questions</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;">
+                        <?php foreach ($relSets as $rs): ?>
+                            <a class="btn" style="background: linear-gradient(135deg, #7c3aed, #2563eb); border-color: rgba(139,92,246,.4);" href="clean_question_viewer.php#set-<?php echo (int)$rs['id']; ?>">
+                                <i class="fas fa-play"></i> <?php echo htmlspecialchars($rs['set_title']); ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     <?php endwhile; else: ?>
@@ -133,7 +205,8 @@ ob_start();
 
 .pdf-viewer {
     background: transparent;
-    max-width: calc(100% - 48px);
+    width: 96vw;              /* make modal nearly full width */
+    max-width: 1400px;        /* cap on very wide screens */
     max-height: calc(100% - 48px);
     display: flex;
     flex-direction: column;
@@ -153,14 +226,17 @@ ob_start();
 
 /* "page" container (A4-ish) */
 .pdf-page-frame {
-    background: #ddd; /* surrounding background */
-    padding: 18px;
+    /* Unified reading container */
+    background: #ffffff; 
+    padding: 24px; 
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.18);
     display:flex;
     justify-content:center;
     overflow: auto;
-    max-height: calc(100vh - 120px);
+    max-height: calc(100vh - 80px);
     scrollbar-width: thin;
-    scrollbar-color: #999 #ddd;
+    scrollbar-color: #999 #f5f5f5;
 }
 
 /* Custom scrollbar for webkit browsers */
@@ -205,11 +281,10 @@ ob_start();
     background-size: 12px;
 }
 .pdf-page {
-    width: 400mm; /* A4 width */
-    min-height: 297mm; /* A4 height */
-    background: white;
-    box-shadow: 0 6px 20px rgba(0,0,0,.18);
-    padding: 24mm;
+    width: 100%;
+    min-height: 50vh; 
+    background: transparent; /* let frame provide the unified white */
+    padding: 0;
     box-sizing: border-box;
     overflow: visible;
     transform-origin: top left;
@@ -230,10 +305,23 @@ ob_start();
     cursor:pointer;
 }
 .pdf-meta { font-size:13px; color:#444; }
+/* Sizing for embedded PDF viewer */
+.pdf-embed { width: 100%; height: calc(100vh - 140px); border: 0; }
+/* Remove per-paragraph white boxes coming from source markup */
+.pdf-page p,
+.pdf-page div,
+.pdf-page section,
+.pdf-page article {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+/* Pleasant readable paragraph spacing */
+.pdf-page p { margin: 0 0 14px 0; }
 </style>
 
 <script>
-function viewMaterial(title, content, theme) {
+function viewMaterial(title, content, theme, attachmentUrl, attachmentType) {
     const backdrop = document.getElementById('pdfViewerBackdrop');
     const page = document.getElementById('pdfPage');
     const tl = document.getElementById('pdfViewerTitle');
@@ -246,17 +334,59 @@ function viewMaterial(title, content, theme) {
     page.style.backgroundColor = '#ffffff';
     page.style.color = '#000000';
 
-    // Insert content - handle both HTML and plain text
-    if (content && typeof content === 'string') {
-        // If content contains HTML tags, render it as HTML
-        if (content.includes('<') && content.includes('>')) {
-            page.innerHTML = sanitizeViewerHtml(content);
-        } else {
-            // If it's plain text, wrap it in a paragraph
-            page.innerHTML = '<p>' + escapeHtml(content) + '</p>';
-        }
+    // Prefer showing the uploaded attachment (e.g., PDF) if available
+    if (attachmentUrl) {
+        const safeSrc = String(attachmentUrl);
+        const iframe = document.createElement('iframe');
+        iframe.src = safeSrc;
+        iframe.className = 'pdf-embed';
+        iframe.loading = 'lazy';
+        // Make container fluid for iframe content
+        page.style.width = '100%';
+        page.style.padding = '0';
+        page.style.minHeight = '70vh';
+        page.style.background = 'transparent';
+        page.innerHTML = '';
+        page.appendChild(iframe);
+        meta.textContent = attachmentType || 'Attachment';
     } else {
-        page.innerHTML = '<p>No content available.</p>';
+        // Insert content - handle both HTML and plain text
+        if (content && typeof content === 'string') {
+            const looksLikeFullHtml = /<\s*html|<\s*body|<!doctype|<\s*style|<\s*link[^>]*stylesheet/i.test(content);
+            if (looksLikeFullHtml) {
+                // Render full HTML page inside an isolated iframe to preserve its own CSS
+                const iframe = document.createElement('iframe');
+                iframe.className = 'pdf-embed';
+                iframe.loading = 'lazy';
+                // Keep styles, strip scripts
+                const safe = sanitizeViewerHtml(content);
+                const htmlShell = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>
+                    html,body{margin:0;padding:0;background:#0b0f17;color:#000;font-family:Arial,Helvetica,sans-serif}
+                    .reader{max-width:1100px;margin:24px auto;background:#fff;padding:24px;border-radius:10px;line-height:1.7}
+                    .reader p, .reader div, .reader section, .reader article{background:transparent !important;box-shadow:none !important;border:none !important}
+                    .reader img, .reader video, .reader iframe{max-width:100%;height:auto}
+                </style></head><body><div class="reader">${safe}</div></body></html>`;
+                iframe.srcdoc = htmlShell;
+                // Make container fluid for iframe content
+                page.style.width = '100%';
+                page.style.padding = '0';
+                page.style.minHeight = '70vh';
+                page.style.background = 'transparent';
+                page.innerHTML = '';
+                page.appendChild(iframe);
+                meta.textContent = 'HTML Material';
+            } else if (content.includes('<') && content.includes('>')) {
+                // Inline HTML fragment: render directly inside pdf-page area; pdf-page-frame now provides white background
+                page.style.width = '100%';
+                page.style.padding = '24px';
+                page.style.background = 'transparent';
+                page.innerHTML = sanitizeViewerHtml(content);
+            } else {
+                page.innerHTML = '<p>' + escapeHtml(content) + '</p>';
+            }
+        } else {
+            page.innerHTML = '<p>No content available.</p>';
+        }
     }
 
     // reset zoom
@@ -323,6 +453,22 @@ function setPdfZoom(v){
 function downloadPdfView(){
     const title = document.getElementById('pdfViewerTitle').textContent || 'material';
     const page = document.getElementById('pdfPage');
+    // If viewing via iframe, try to open the source (attachment or srcdoc) in a new tab
+    const iframe = page.querySelector('iframe');
+    if (iframe) {
+        if (iframe.src) {
+            try { window.open(iframe.src, '_blank'); return; } catch (e) {}
+        }
+        if (iframe.srcdoc) {
+            const w = window.open('', '_blank');
+            if (w) {
+                w.document.open();
+                w.document.write(iframe.srcdoc);
+                w.document.close();
+                return;
+            }
+        }
+    }
     const content = page.innerHTML;
     const bg = page.style.backgroundColor || '#ffffff';
     const color = page.style.color || '#000000';
@@ -346,29 +492,29 @@ function downloadPdfView(){
         </html>
     `;
 
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = '0';
+    document.body.appendChild(printFrame);
 
-    const doc = iframe.contentWindow.document;
+    const doc = printFrame.contentWindow.document;
     doc.open();
     doc.write(printHtml);
     doc.close();
 
     const doPrint = () => {
         try {
-            iframe.contentWindow.focus();
-            iframe.contentWindow.print();
+            printFrame.contentWindow.focus();
+            printFrame.contentWindow.print();
         } catch (e) {
             console.warn('print failed', e);
             alert('Unable to open Print dialog in this browser.');
         } finally {
-            setTimeout(()=>{ iframe.remove(); }, 800);
+            setTimeout(()=>{ printFrame.remove(); }, 800);
         }
     };
 
@@ -392,7 +538,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const title = e.target.getAttribute('data-title');
             const content = e.target.getAttribute('data-content');
             const theme = e.target.getAttribute('data-theme');
-            viewMaterial(title, content, theme);
+            const attachmentUrl = e.target.getAttribute('data-attachment');
+            const attachmentType = e.target.getAttribute('data-attachment-type');
+            viewMaterial(title, content, theme, attachmentUrl, attachmentType);
         }
     });
     

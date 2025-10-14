@@ -34,16 +34,25 @@ function createNotificationForStudent($conn, $teacherId, $studentId, $type, $tit
 }
 
 function createNotificationForAllStudents($conn, $teacherId, $type, $title, $message, $relatedId = null) {
-    // Get all sections for this teacher
-    $sections = $conn->query("SELECT id FROM sections WHERE teacher_id = $teacherId");
-    
-    $success = true;
-    while ($section = $sections->fetch_assoc()) {
-        if (!createNotificationForSection($conn, $teacherId, $section['id'], $type, $title, $message, $relatedId)) {
-            $success = false;
+    try {
+        // Get all sections for this teacher via mapping table
+        $stmt = $conn->prepare("SELECT s.id FROM teacher_sections ts JOIN sections s ON s.id = ts.section_id WHERE ts.teacher_id = ?");
+        if (!$stmt) { throw new Exception('Prepare failed: ' . $conn->error); }
+        $stmt->bind_param('i', $teacherId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $success = true;
+        while ($row = $result->fetch_assoc()) {
+            if (!createNotificationForSection($conn, $teacherId, (int)$row['id'], $type, $title, $message, $relatedId)) {
+                $success = false;
+            }
         }
+        $stmt->close();
+        return $success;
+    } catch (Exception $e) {
+        error_log('createNotificationForAllStudents error: ' . $e->getMessage());
+        return false;
     }
-    
-    return $success;
 }
 ?>
