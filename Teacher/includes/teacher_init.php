@@ -21,7 +21,7 @@ if (isset($_GET['logout'])) {
 // Auth guard: pages under Teacher/ require auth
 if (!isset($_SESSION['teacher_logged_in']) || !$_SESSION['teacher_logged_in']) {
     // If this is an AJAX action request, return JSON instead of HTML redirect
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if (!headers_sent()) {
             header('Content-Type: application/json');
         }

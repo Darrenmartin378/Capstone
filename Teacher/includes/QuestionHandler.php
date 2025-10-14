@@ -272,14 +272,14 @@ class QuestionHandler {
         try {
             $questions = [];
             
-            // Get MCQ
-            $stmt = $this->conn->prepare("SELECT question_id as id, 'mcq' as type, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer, points FROM mcq_questions WHERE set_id = ?");
+            // Get MCQ with order_index
+            $stmt = $this->conn->prepare("SELECT question_id as id, 'mcq' as type, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer, points, order_index FROM mcq_questions WHERE set_id = ? ORDER BY order_index, question_id");
             $stmt->bind_param('i', $setId);
             $stmt->execute();
             $questions = array_merge($questions, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
             
-            // Get Matching
-            $stmt = $this->conn->prepare("SELECT question_id as id, 'matching' as type, question_text, left_items, right_items, correct_pairs, points FROM matching_questions WHERE set_id = ?");
+            // Get Matching with order_index
+            $stmt = $this->conn->prepare("SELECT question_id as id, 'matching' as type, question_text, left_items, right_items, correct_pairs, points, order_index FROM matching_questions WHERE set_id = ? ORDER BY order_index, question_id");
             $stmt->bind_param('i', $setId);
             $stmt->execute();
             $matching = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -290,11 +290,21 @@ class QuestionHandler {
             }
             $questions = array_merge($questions, $matching);
             
-            // Get Essay
-            $stmt = $this->conn->prepare("SELECT question_id as id, 'essay' as type, question_text, points FROM essay_questions WHERE set_id = ?");
+            // Get Essay with order_index
+            $stmt = $this->conn->prepare("SELECT question_id as id, 'essay' as type, question_text, points, order_index FROM essay_questions WHERE set_id = ? ORDER BY order_index, question_id");
             $stmt->bind_param('i', $setId);
             $stmt->execute();
             $questions = array_merge($questions, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+            
+            // Sort all questions by order_index, then by id
+            usort($questions, function($a, $b) {
+                $orderA = $a['order_index'] ?? 999;
+                $orderB = $b['order_index'] ?? 999;
+                if ($orderA == $orderB) {
+                    return $a['id'] - $b['id'];
+                }
+                return $orderA - $orderB;
+            });
             
             return $questions;
         } catch (Exception $e) {
@@ -307,6 +317,48 @@ class QuestionHandler {
         $stmt->bind_param('i', $setId);
         $stmt->execute();
         return $stmt->get_result()->fetch_assoc()['set_title'] ?? '';
+    }
+    
+    /**
+     * Get the next order index for a question set
+     */
+    private function getNextOrderIndex($setId) {
+        try {
+            // Get the maximum order_index from all question tables for this set
+            $maxOrder = 0;
+            
+            // Check MCQ questions
+            $stmt = $this->conn->prepare("SELECT MAX(order_index) as max_order FROM mcq_questions WHERE set_id = ?");
+            $stmt->bind_param('i', $setId);
+            $stmt->execute();
+            $result = $stmt->get_result()->fetch_assoc();
+            if ($result && $result['max_order'] !== null) {
+                $maxOrder = max($maxOrder, $result['max_order']);
+            }
+            
+            // Check Matching questions
+            $stmt = $this->conn->prepare("SELECT MAX(order_index) as max_order FROM matching_questions WHERE set_id = ?");
+            $stmt->bind_param('i', $setId);
+            $stmt->execute();
+            $result = $stmt->get_result()->fetch_assoc();
+            if ($result && $result['max_order'] !== null) {
+                $maxOrder = max($maxOrder, $result['max_order']);
+            }
+            
+            // Check Essay questions
+            $stmt = $this->conn->prepare("SELECT MAX(order_index) as max_order FROM essay_questions WHERE set_id = ?");
+            $stmt->bind_param('i', $setId);
+            $stmt->execute();
+            $result = $stmt->get_result()->fetch_assoc();
+            if ($result && $result['max_order'] !== null) {
+                $maxOrder = max($maxOrder, $result['max_order']);
+            }
+            
+            return $maxOrder + 1;
+        } catch (Exception $e) {
+            error_log('Error getting next order index: ' . $e->getMessage());
+            return 1; // Fallback to 1 if there's an error
+        }
     }
 
     public function updateQuestionSet($setId, $newTitle, $questions) {
@@ -346,8 +398,14 @@ class QuestionHandler {
     private function updateQuestion($id, $type, $data) {
         switch ($type) {
             case 'mcq':
-                $stmt = $this->conn->prepare("UPDATE mcq_questions SET question_text = ?, choice_a = ?, choice_b = ?, choice_c = ?, choice_d = ?, correct_answer = ?, points = ? WHERE question_id = ?");
-                $stmt->bind_param('ssssssii', $data['question_text'], $data['choice_a'], $data['choice_b'], $data['choice_c'], $data['choice_d'], $data['correct_answer'], $data['points'], $id);
+                $orderIndex = isset($data['order_index']) ? (int)$data['order_index'] : null;
+                if ($orderIndex !== null) {
+                    $stmt = $this->conn->prepare("UPDATE mcq_questions SET question_text = ?, choice_a = ?, choice_b = ?, choice_c = ?, choice_d = ?, correct_answer = ?, points = ?, order_index = ? WHERE question_id = ?");
+                    $stmt->bind_param('ssssssiii', $data['question_text'], $data['choice_a'], $data['choice_b'], $data['choice_c'], $data['choice_d'], $data['correct_answer'], $data['points'], $orderIndex, $id);
+                } else {
+                    $stmt = $this->conn->prepare("UPDATE mcq_questions SET question_text = ?, choice_a = ?, choice_b = ?, choice_c = ?, choice_d = ?, correct_answer = ?, points = ? WHERE question_id = ?");
+                    $stmt->bind_param('ssssssii', $data['question_text'], $data['choice_a'], $data['choice_b'], $data['choice_c'], $data['choice_d'], $data['correct_answer'], $data['points'], $id);
+                }
                 $ok = $stmt->execute();
                 if ($ok && isset($data['difficulty']) && trim($data['difficulty']) !== '') { $this->saveQuestionDifficulty('mcq', $id, trim(strtolower($data['difficulty']))); }
                 return $ok;
@@ -355,14 +413,26 @@ class QuestionHandler {
                 $leftItems = json_encode($data['left_items']);
                 $rightItems = json_encode($data['right_items']);
                 $correctPairs = json_encode($data['matches']);
-                $stmt = $this->conn->prepare("UPDATE matching_questions SET question_text = ?, left_items = ?, right_items = ?, correct_pairs = ?, points = ? WHERE question_id = ?");
-                $stmt->bind_param('ssssii', $data['question_text'], $leftItems, $rightItems, $correctPairs, $data['points'], $id);
+                $orderIndex = isset($data['order_index']) ? (int)$data['order_index'] : null;
+                if ($orderIndex !== null) {
+                    $stmt = $this->conn->prepare("UPDATE matching_questions SET question_text = ?, left_items = ?, right_items = ?, correct_pairs = ?, points = ?, order_index = ? WHERE question_id = ?");
+                    $stmt->bind_param('ssssiii', $data['question_text'], $leftItems, $rightItems, $correctPairs, $data['points'], $orderIndex, $id);
+                } else {
+                    $stmt = $this->conn->prepare("UPDATE matching_questions SET question_text = ?, left_items = ?, right_items = ?, correct_pairs = ?, points = ? WHERE question_id = ?");
+                    $stmt->bind_param('ssssii', $data['question_text'], $leftItems, $rightItems, $correctPairs, $data['points'], $id);
+                }
                 $ok = $stmt->execute();
                 if ($ok && isset($data['difficulty']) && trim($data['difficulty']) !== '') { $this->saveQuestionDifficulty('matching', $id, trim(strtolower($data['difficulty']))); }
                 return $ok;
             case 'essay':
-                $stmt = $this->conn->prepare("UPDATE essay_questions SET question_text = ?, points = ? WHERE question_id = ?");
-                $stmt->bind_param('sii', $data['question_text'], $data['points'], $id);
+                $orderIndex = isset($data['order_index']) ? (int)$data['order_index'] : null;
+                if ($orderIndex !== null) {
+                    $stmt = $this->conn->prepare("UPDATE essay_questions SET question_text = ?, points = ?, order_index = ? WHERE question_id = ?");
+                    $stmt->bind_param('siii', $data['question_text'], $data['points'], $orderIndex, $id);
+                } else {
+                    $stmt = $this->conn->prepare("UPDATE essay_questions SET question_text = ?, points = ? WHERE question_id = ?");
+                    $stmt->bind_param('sii', $data['question_text'], $data['points'], $id);
+                }
                 $ok = $stmt->execute();
                 if ($ok && isset($data['difficulty']) && trim($data['difficulty']) !== '') { $this->saveQuestionDifficulty('essay', $id, trim(strtolower($data['difficulty']))); }
                 return $ok;
@@ -522,7 +592,8 @@ class QuestionHandler {
                 $choices[$letter] = $questionData[$choiceKey] ?? '';
             }
             $correctAnswer = strtoupper(trim($questionData['correct_answer'] ?? ''));
-            $orderIndex = 0;
+            // Get the next order index for this set
+            $orderIndex = $this->getNextOrderIndex($setId);
 
             if ($hasDiff) {
                 // Types: i (set), s (text), ssss (A-D), s (correct), ii (points, order), s (difficulty)
@@ -562,7 +633,8 @@ class QuestionHandler {
             $leftItems = json_encode($questionData['left_items'] ?? []);
             $rightItems = json_encode($questionData['right_items'] ?? []);
             $correctPairs = json_encode($questionData['matches'] ?? []);
-            $orderIndex = 0;
+            // Get the next order index for this set
+            $orderIndex = $this->getNextOrderIndex($setId);
             
             if ($hasDiff) {
                 // Types: i (set), s (text), s (left), s (right), s (pairs), i (points), i (order), s (difficulty)
@@ -599,7 +671,8 @@ class QuestionHandler {
                 ");
             }
             
-            $orderIndex = 0;
+            // Get the next order index for this set
+            $orderIndex = $this->getNextOrderIndex($setId);
             if ($hasDiff) {
                 $stmt->bind_param('isiis', $setId, $questionText, $points, $orderIndex, $difficulty);
             } else {

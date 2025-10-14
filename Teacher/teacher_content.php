@@ -4,12 +4,45 @@ require_once __DIR__ . '/includes/notification_helper.php';
 
 $edit_mode = false;
 $edit_material = null;
+$edit_comprehension_mode = false;
+$edit_comprehension_set = null;
+
+// Initialize teacher sections list
+$teacherSectionsList = [];
+try {
+    $stf = $conn->prepare("SELECT s.id, s.name FROM teacher_sections ts JOIN sections s ON s.id = ts.section_id WHERE ts.teacher_id = ?");
+    $stf->bind_param('i', $_SESSION['teacher_id']);
+    $stf->execute();
+    $rf = $stf->get_result();
+    while ($row = $rf->fetch_assoc()) { $teacherSectionsList[] = $row; }
+    $stf->close();
+} catch (Throwable $e) { /* ignore */ }
 
 // Ensure reading_materials has section_id column (migration-safe)
 try {
     $chk = $conn->query("SHOW COLUMNS FROM reading_materials LIKE 'section_id'");
     if ($chk && $chk->num_rows === 0) {
         $conn->query("ALTER TABLE reading_materials ADD COLUMN section_id INT NULL AFTER teacher_id");
+    }
+} catch (Throwable $e) { /* ignore */ }
+
+// Ensure reading_materials has attachment columns (migration-safe)
+try {
+    $needPath = $conn->query("SHOW COLUMNS FROM reading_materials LIKE 'attachment_path'");
+    if ($needPath && $needPath->num_rows === 0) {
+        $conn->query("ALTER TABLE reading_materials ADD COLUMN attachment_path VARCHAR(255) NULL AFTER content");
+    }
+    $needName = $conn->query("SHOW COLUMNS FROM reading_materials LIKE 'attachment_name'");
+    if ($needName && $needName->num_rows === 0) {
+        $conn->query("ALTER TABLE reading_materials ADD COLUMN attachment_name VARCHAR(255) NULL AFTER attachment_path");
+    }
+    $needType = $conn->query("SHOW COLUMNS FROM reading_materials LIKE 'attachment_type'");
+    if ($needType && $needType->num_rows === 0) {
+        $conn->query("ALTER TABLE reading_materials ADD COLUMN attachment_type VARCHAR(128) NULL AFTER attachment_name");
+    }
+    $needSize = $conn->query("SHOW COLUMNS FROM reading_materials LIKE 'attachment_size'");
+    if ($needSize && $needSize->num_rows === 0) {
+        $conn->query("ALTER TABLE reading_materials ADD COLUMN attachment_size INT NULL AFTER attachment_type");
     }
 } catch (Throwable $e) { /* ignore */ }
 
@@ -31,13 +64,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$conn) {
                 throw new Exception('Database connection failed');
             }
+            // Handle file upload (optional)
+            $attPath = null; $attName = null; $attType = null; $attSize = null;
+            if (!empty($_FILES)) { error_log('FILES: ' . print_r($_FILES, true)); }
+            if (!empty($_FILES['attachment']) && is_uploaded_file($_FILES['attachment']['tmp_name'])) {
+                $uploadDir = __DIR__ . '/../uploads/materials';
+                if (!is_dir($uploadDir)) { @mkdir($uploadDir, 0777, true); }
+                $orig = $_FILES['attachment']['name'];
+                $safeName = preg_replace('/[^a-zA-Z0-9_\.-]+/', '_', $orig);
+                $ext = pathinfo($safeName, PATHINFO_EXTENSION);
+                $fileName = uniqid('mat_', true) . ($ext? ('.' . $ext) : '');
+                $destAbs = rtrim($uploadDir, '/\\') . DIRECTORY_SEPARATOR . $fileName;
+                if (move_uploaded_file($_FILES['attachment']['tmp_name'], $destAbs)) {
+                    $attPath = 'uploads/materials/' . $fileName; // relative to Teacher/
+                    $attName = $orig;
+                    $attType = $_FILES['attachment']['type'] ?? null;
+                    $attSize = (int)($_FILES['attachment']['size'] ?? 0);
+                }
+            }
             
-            $stmt = $conn->prepare("INSERT INTO reading_materials (teacher_id, section_id, title, content, theme_settings, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
+            $stmt = $conn->prepare("INSERT INTO reading_materials (teacher_id, section_id, title, content, attachment_path, attachment_name, attachment_type, attachment_size, theme_settings, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
             if (!$stmt) {
                 throw new Exception('Failed to prepare statement: ' . $conn->error);
             }
-            
-            $stmt->bind_param("iisss", $teacher_id, $section_id, $title, $content, $theme_settings);
+            $stmt->bind_param("iisssssis", $teacher_id, $section_id, $title, $content, $attPath, $attName, $attType, $attSize, $theme_settings);
             if (!$stmt->execute()) {
                 throw new Exception('Failed to execute statement: ' . $stmt->error);
             }
@@ -79,8 +129,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $section_id = isset($_POST['section_id']) ? (int)$_POST['section_id'] : null;
 
         if ($id && $title && $content && $teacher_id) {
-            $stmt = $conn->prepare("UPDATE reading_materials SET section_id = ?, title = ?, content = ?, theme_settings = ?, updated_at = NOW() WHERE id = ? AND teacher_id = ?");
-            $stmt->bind_param("isssii", $section_id, $title, $content, $theme_settings, $id, $teacher_id);
+            // Handle new upload (optional)
+            $attPath = null; $attName = null; $attType = null; $attSize = null; $hasNew = false;
+            if (!empty($_FILES['attachment']) && is_uploaded_file($_FILES['attachment']['tmp_name'])) {
+                $uploadDir = __DIR__ . '/../uploads/materials';
+                if (!is_dir($uploadDir)) { @mkdir($uploadDir, 0777, true); }
+                $orig = $_FILES['attachment']['name'];
+                $safeName = preg_replace('/[^a-zA-Z0-9_\.-]+/', '_', $orig);
+                $ext = pathinfo($safeName, PATHINFO_EXTENSION);
+                $fileName = uniqid('mat_', true) . ($ext? ('.' . $ext) : '');
+                $destAbs = rtrim($uploadDir, '/\\') . DIRECTORY_SEPARATOR . $fileName;
+                if (move_uploaded_file($_FILES['attachment']['tmp_name'], $destAbs)) {
+                    $attPath = 'uploads/materials/' . $fileName;
+                    $attName = $orig; $attType = $_FILES['attachment']['type'] ?? null; $attSize = (int)($_FILES['attachment']['size'] ?? 0);
+                    $hasNew = true;
+                }
+            }
+
+            if ($hasNew) {
+                $stmt = $conn->prepare("UPDATE reading_materials SET section_id = ?, title = ?, content = ?, attachment_path = ?, attachment_name = ?, attachment_type = ?, attachment_size = ?, theme_settings = ?, updated_at = NOW() WHERE id = ? AND teacher_id = ?");
+                $stmt->bind_param("isssssisii", $section_id, $title, $content, $attPath, $attName, $attType, $attSize, $theme_settings, $id, $teacher_id);
+            } else {
+                $stmt = $conn->prepare("UPDATE reading_materials SET section_id = ?, title = ?, content = ?, theme_settings = ?, updated_at = NOW() WHERE id = ? AND teacher_id = ?");
+                $stmt->bind_param("isssii", $section_id, $title, $content, $theme_settings, $id, $teacher_id);
+            }
             $stmt->execute();
             $stmt->close();
             // Redirect to prevent form resubmission
@@ -108,6 +180,112 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Expires: 0');
             exit;
         }
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'update_comprehension_questions') {
+        $set_id = (int)($_POST['set_id'] ?? 0);
+        $set_title = $_POST['set_title'] ?? '';
+        $section_ids = $_POST['section_ids'] ?? [];
+        
+        if ($set_id && $set_title && $teacher_id && !empty($section_ids)) {
+            // For now, use the first selected section (can be enhanced later for multiple sections)
+            $section_id = (int)$section_ids[0];
+            
+            // Update the question set title and section
+            $stmt = $conn->prepare("UPDATE question_sets SET set_title = ?, section_id = ?, updated_at = NOW() WHERE id = ? AND teacher_id = ?");
+            $stmt->bind_param("siii", $set_title, $section_id, $set_id, $teacher_id);
+            $stmt->execute();
+            $stmt->close();
+            
+            // Update individual questions
+            if (isset($_POST['questions']) && is_array($_POST['questions'])) {
+                foreach ($_POST['questions'] as $questionData) {
+                    $question_id = (int)($questionData['id'] ?? 0);
+                    $question_text = $questionData['question_text'] ?? '';
+                    $points = (int)($questionData['points'] ?? 1);
+                    $order_index = (int)($questionData['order_index'] ?? 0);
+                    // Determine question type based on data structure
+                    if (isset($questionData['type']) && !empty($questionData['type'])) {
+                        $question_type = $questionData['type'];
+                    } elseif (isset($questionData['left_items']) && isset($questionData['right_items'])) {
+                        $question_type = 'matching';
+                    } elseif (isset($questionData['choices']) && is_array($questionData['choices'])) {
+                        $question_type = 'mcq';
+                    } else {
+                        $question_type = 'essay';
+                    }
+                    
+                    if ($question_text) {
+                        if ($question_id > 0) {
+                            // Update existing question based on type
+                            if ($question_type === 'mcq') {
+                                $choice_a = $questionData['choices'][0] ?? '';
+                                $choice_b = $questionData['choices'][1] ?? '';
+                                $choice_c = $questionData['choices'][2] ?? '';
+                                $choice_d = $questionData['choices'][3] ?? '';
+                                $correct_answer = $questionData['answer_key'] ?? '';
+                                
+                                $stmt = $conn->prepare("UPDATE mcq_questions SET question_text = ?, choice_a = ?, choice_b = ?, choice_c = ?, choice_d = ?, correct_answer = ?, points = ?, order_index = ? WHERE question_id = ? AND set_id = ?");
+                                $stmt->bind_param("ssssssiii", $question_text, $choice_a, $choice_b, $choice_c, $choice_d, $correct_answer, $points, $order_index, $question_id, $set_id);
+                                $stmt->execute();
+                                $stmt->close();
+                            } elseif ($question_type === 'matching') {
+                                $left_items = json_encode($questionData['left_items'] ?? []);
+                                $right_items = json_encode($questionData['right_items'] ?? []);
+                                $correct_pairs = $questionData['answer_key'] ?? '';
+                                
+                                $stmt = $conn->prepare("UPDATE matching_questions SET question_text = ?, left_items = ?, right_items = ?, correct_pairs = ?, points = ?, order_index = ? WHERE question_id = ? AND set_id = ?");
+                                $stmt->bind_param("ssssiiii", $question_text, $left_items, $right_items, $correct_pairs, $points, $order_index, $question_id, $set_id);
+                                $stmt->execute();
+                                $stmt->close();
+                            } elseif ($question_type === 'essay') {
+                                $stmt = $conn->prepare("UPDATE essay_questions SET question_text = ?, points = ?, order_index = ? WHERE question_id = ? AND set_id = ?");
+                                $stmt->bind_param("siii", $question_text, $points, $order_index, $question_id, $set_id);
+                                $stmt->execute();
+                                $stmt->close();
+                            }
+                        } else {
+                            // Insert new question based on type
+                            if ($question_type === 'mcq') {
+                                $choice_a = $questionData['choices'][0] ?? '';
+                                $choice_b = $questionData['choices'][1] ?? '';
+                                $choice_c = $questionData['choices'][2] ?? '';
+                                $choice_d = $questionData['choices'][3] ?? '';
+                                $correct_answer = $questionData['answer_key'] ?? '';
+                                
+                                $stmt = $conn->prepare("INSERT INTO mcq_questions (set_id, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer, points, order_index) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                                $stmt->bind_param("issssssii", $set_id, $question_text, $choice_a, $choice_b, $choice_c, $choice_d, $correct_answer, $points, $order_index);
+                                $stmt->execute();
+                                $stmt->close();
+                            } elseif ($question_type === 'matching') {
+                                $left_items = json_encode($questionData['left_items'] ?? []);
+                                $right_items = json_encode($questionData['right_items'] ?? []);
+                                $correct_pairs = $questionData['answer_key'] ?? '';
+                                
+                                $stmt = $conn->prepare("INSERT INTO matching_questions (set_id, question_text, left_items, right_items, correct_pairs, points, order_index) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                                $stmt->bind_param("issssii", $set_id, $question_text, $left_items, $right_items, $correct_pairs, $points, $order_index);
+                                $stmt->execute();
+                                $stmt->close();
+                            } elseif ($question_type === 'essay') {
+                                $stmt = $conn->prepare("INSERT INTO essay_questions (set_id, question_text, points, order_index) VALUES (?, ?, ?, ?)");
+                                $stmt->bind_param("isii", $set_id, $question_text, $points, $order_index);
+                                $stmt->execute();
+                                $stmt->close();
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Redirect to prevent form resubmission
+            header('Location: teacher_content.php?comprehension_updated=1&success=1');
+            header('Cache-Control: no-cache, no-store, must-revalidate');
+            header('Pragma: no-cache');
+            header('Expires: 0');
+            exit;
+        } else {
+            // Redirect with error
+            header('Location: teacher_content.php?error=1');
+            exit;
+        }
     } else {
         // No valid action found
         error_log('No valid action found in POST data');
@@ -133,6 +311,8 @@ if (isset($_GET['success']) && $_GET['success'] == '1') {
         $success_message = 'Content updated successfully!';
     } elseif (isset($_GET['deleted']) && $_GET['deleted'] == '1') {
         $success_message = 'Content deleted successfully!';
+    } elseif (isset($_GET['comprehension_updated']) && $_GET['comprehension_updated'] == '1') {
+        $success_message = 'Comprehension questions updated successfully!';
     }
 } elseif (isset($_GET['error']) && $_GET['error'] == '1') {
     $error_message = 'An error occurred. Please try again.';
@@ -164,11 +344,83 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
     }
 }
 
+// Handle comprehension question edit mode
+if (isset($_GET['edit_comprehension']) && is_numeric($_GET['edit_comprehension'])) {
+    $edit_set_id = (int)$_GET['edit_comprehension'];
+    
+    // Get the question set details
+    $stmt = $conn->prepare("SELECT * FROM question_sets WHERE id = ? AND teacher_id = ?");
+    $stmt->bind_param("ii", $edit_set_id, $_SESSION['teacher_id']);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $edit_comprehension_set = $result->fetch_assoc();
+    $stmt->close();
+    
+    if ($edit_comprehension_set) {
+        $edit_comprehension_mode = true;
+        
+        // Get all questions for this set from separate tables
+        $edit_comprehension_set['questions'] = [];
+        
+        // Get MCQ questions
+        $stmt = $conn->prepare("SELECT question_id as id, 'mcq' as type, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer, points, order_index FROM mcq_questions WHERE set_id = ? ORDER BY order_index, question_id");
+        $stmt->bind_param("i", $edit_set_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            // Convert MCQ format to match the edit form structure
+            $choices = [
+                $row['choice_a'],
+                $row['choice_b'], 
+                $row['choice_c'],
+                $row['choice_d']
+            ];
+            $row['choices'] = json_encode($choices);
+            $row['answer_key'] = $row['correct_answer'];
+            unset($row['choice_a'], $row['choice_b'], $row['choice_c'], $row['choice_d'], $row['correct_answer']);
+            $edit_comprehension_set['questions'][] = $row;
+        }
+        $stmt->close();
+        
+        // Get Matching questions
+        $stmt = $conn->prepare("SELECT question_id as id, 'matching' as type, question_text, left_items, right_items, correct_pairs, points, order_index FROM matching_questions WHERE set_id = ? ORDER BY order_index, question_id");
+        $stmt->bind_param("i", $edit_set_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            // Convert matching format to match the edit form structure
+            $row['choices'] = $row['left_items']; // Store left items in choices field
+            $row['right_items'] = $row['right_items']; // Keep right items separate
+            $row['answer_key'] = $row['correct_pairs']; // Store correct pairs in answer_key field
+            unset($row['left_items'], $row['correct_pairs']);
+            $edit_comprehension_set['questions'][] = $row;
+        }
+        $stmt->close();
+        
+        // Get Essay questions
+        $stmt = $conn->prepare("SELECT question_id as id, 'essay' as type, question_text, points, order_index FROM essay_questions WHERE set_id = ? ORDER BY order_index, question_id");
+        $stmt->bind_param("i", $edit_set_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $edit_comprehension_set['questions'][] = $row;
+        }
+        $stmt->close();
+    }
+}
+
 // Get all materials for this teacher (with optional section filter)
 $materials = [];
 $filterSecId = (int)($_GET['sec'] ?? 0);
+$filterType = isset($_GET['mtype']) ? strtolower(trim($_GET['mtype'])) : 'all';
+if (!in_array($filterType, ['all','created','uploaded'], true)) { $filterType = 'all'; }
 $sql = "SELECT rm.*, s.name AS section_name FROM reading_materials rm LEFT JOIN sections s ON s.id = rm.section_id WHERE rm.teacher_id = ?";
 if ($filterSecId > 0) { $sql .= " AND rm.section_id = ?"; }
+if ($filterType === 'uploaded') {
+    $sql .= " AND (rm.attachment_path IS NOT NULL AND rm.attachment_path <> '')";
+} elseif ($filterType === 'created') {
+    $sql .= " AND (rm.attachment_path IS NULL OR rm.attachment_path = '')";
+}
 $sql .= " ORDER BY rm.created_at DESC";
 $stmt = $conn->prepare($sql);
 if ($filterSecId > 0) { $stmt->bind_param("ii", $_SESSION['teacher_id'], $filterSecId); }
@@ -185,8 +437,13 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
 
 <div class="main-content">
     <div class="content-header">
+        <?php if ($edit_comprehension_mode): ?>
+            <h1>Edit Comprehension Questions</h1>
+            <p>Modify your comprehension question set</p>
+        <?php else: ?>
         <h1>Content Management</h1>
         <p>Upload and manage reading materials for your students</p>
+        <?php endif; ?>
     </div>
 
     <?php if (!empty($success_message)): ?>
@@ -215,7 +472,216 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
         </div>
     <?php endif; ?>
 
-
+    <?php if ($edit_comprehension_mode && $edit_comprehension_set): ?>
+        <!-- Comprehension Question Edit Form -->
+        <div class="container">
+            <div class="header">
+                <h1><i class="fas fa-edit"></i> Edit Comprehension Questions</h1>
+                <p>Modify your comprehension question set</p>
+            </div>
+            
+            <form id="comprehensionEditForm" method="POST" class="question-form">
+                <input type="hidden" name="action" value="update_comprehension_questions">
+                <input type="hidden" name="set_id" value="<?php echo $edit_comprehension_set['id']; ?>">
+                
+                <div class="form-group">
+                    <label for="set_title">Question Set Title: <span style="color: red;">*</span></label>
+                    <input type="text" id="set_title" name="set_title" value="<?php echo htmlspecialchars($edit_comprehension_set['set_title']); ?>" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Section: <span style="color: red;">*</span></label>
+                    <div id="sectionMulti" style="border: 2px solid #e1e5e9; border-radius: 6px; padding: 15px; background: #f8f9fa;">
+                        <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #555;">
+                            Select Section(s):
+                        </label>
+                        <?php foreach ($teacherSections as $section): $label = htmlspecialchars($section['section_name'] ?: $section['name']); ?>
+                        <label style="display:grid; grid-template-columns: 1fr auto; align-items:center; column-gap:10px; padding:8px 10px; border-radius:8px; border:2px solid #16a34a; margin-bottom:6px; background:#fff;">
+                            <span style="color:#111827;">&nbsp;<?php echo $label; ?></span>
+                            <input type="checkbox" class="sec-box" value="<?php echo (int)$section['id']; ?>" data-label="<?php echo $label; ?>" 
+                                   <?php echo ($edit_comprehension_set['section_id'] == $section['id']) ? 'checked' : ''; ?> style="margin:0; justify-self:end;">
+                        </label>
+                        <?php endforeach; ?>
+                    </div>
+                    <div id="sectionHiddenInputs"></div>
+                    <small style="color:#6b7280; display:block; margin-top:6px;">Choose one or more sections.</small>
+                    <div id="section-error" class="error-text" style="display: none;"></div>
+                </div>
+                
+                <!-- Debug Information (remove in production) -->
+                <?php if (isset($_GET['debug'])): ?>
+                    <div style="background: #f0f0f0; padding: 15px; margin: 20px 0; border-radius: 8px; font-family: monospace; font-size: 12px;">
+                        <strong>Debug Info:</strong><br>
+                        Questions Count: <?php echo count($edit_comprehension_set['questions']); ?><br>
+                        Questions Data: <?php echo htmlspecialchars(print_r($edit_comprehension_set['questions'], true)); ?>
+                        <br><br>
+                        <?php foreach ($edit_comprehension_set['questions'] as $debugIndex => $debugQuestion): ?>
+                            <strong>Question <?php echo $debugIndex + 1; ?> (<?php echo $debugQuestion['type']; ?>):</strong><br>
+                            Choices: <?php echo htmlspecialchars($debugQuestion['choices'] ?? 'NULL'); ?><br>
+                            Right Items: <?php echo htmlspecialchars($debugQuestion['right_items'] ?? 'NULL'); ?><br>
+                            Answer Key: <?php echo htmlspecialchars($debugQuestion['answer_key'] ?? 'NULL'); ?><br><br>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+                
+                <!-- Cache Busting -->
+                <div style="display: none;">Cache: <?php echo time(); ?></div>
+                
+                <!-- Questions Container -->
+                <div id="questions-container">
+                    <?php if (empty($edit_comprehension_set['questions'])): ?>
+                        <div class="no-questions" style="text-align: center; padding: 20px; color: #666; background: #f8f9fa; border-radius: 8px; margin: 20px 0;">
+                            <p>No questions found in this set. Click "Add New Question" to create questions.</p>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach ($edit_comprehension_set['questions'] as $index => $question): ?>
+                        <div class="question-item" data-question-id="<?php echo $question['id']; ?>">
+                            <div class="question-header">
+                                <span class="question-number">Question <?php echo $index + 1; ?></span>
+                                <button type="button" class="btn-remove" onclick="removeQuestion(<?php echo $index + 1; ?>)">
+                                    <i class="fas fa-trash"></i> Remove
+                                </button>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Question Type:</label>
+                                <select class="question-type-select" onchange="handleQuestionTypeChange(this, <?php echo $index + 1; ?>)">
+                                    <option value="">Select Question Type</option>
+                                    <option value="mcq" <?php echo ($question['type'] === 'mcq') ? 'selected' : ''; ?>>Multiple Choice</option>
+                                    <option value="matching" <?php echo ($question['type'] === 'matching') ? 'selected' : ''; ?>>Matching</option>
+                                    <option value="essay" <?php echo ($question['type'] === 'essay') ? 'selected' : ''; ?>>Essay</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Question Text:</label>
+                                <textarea class="question-text" placeholder="Enter your question here..." name="questions[<?php echo $index; ?>][question_text]" required><?php echo htmlspecialchars($question['question_text']); ?></textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Points:</label>
+                                <input type="number" class="question-points" name="questions[<?php echo $index; ?>][points]" value="<?php echo $question['points']; ?>" min="1" required>
+                            </div>
+                            
+                            <input type="hidden" name="questions[<?php echo $index; ?>][id]" value="<?php echo $question['id']; ?>">
+                            <input type="hidden" name="questions[<?php echo $index; ?>][order_index]" value="<?php echo $question['order_index']; ?>">
+                            <?php if ($question['type'] === 'matching'): ?>
+                            <input type="hidden" name="questions[<?php echo $index; ?>][answer_key]" value="<?php echo htmlspecialchars($question['answer_key'] ?? ''); ?>" id="matches-data-<?php echo $index + 1; ?>">
+                            <?php endif; ?>
+                            
+                            <div id="question-<?php echo $index + 1; ?>-options" class="question-options" style="display: block;">
+                                <?php if ($question['type'] === 'mcq' && !empty($question['choices'])): ?>
+                                    <?php 
+                                    $choices = json_decode($question['choices'], true);
+                                    if (is_array($choices)):
+                                    ?>
+                                    <div class="options-container">
+                                        <label>Answer Choices:</label>
+                                        <?php 
+                                        $choiceLetters = ['a', 'b', 'c', 'd'];
+                                        foreach ($choiceLetters as $idx => $choice): 
+                                            $choiceValue = $choices[$idx] ?? '';
+                                        ?>
+                                        <div class="option-item">
+                                            <input type="text" class="option-input" name="questions[<?php echo $index; ?>][choices][<?php echo $idx; ?>]" 
+                                                   value="<?php echo htmlspecialchars($choiceValue); ?>" placeholder="Option <?php echo strtoupper($choice); ?>">
+                                            <input type="radio" name="questions[<?php echo $index; ?>][answer_key]" value="<?php echo $idx; ?>" 
+                                                   <?php echo ($question['answer_key'] == $idx) ? 'checked' : ''; ?>>
+                                            <label>Correct</label>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <?php endif; ?>
+                                <?php elseif ($question['type'] === 'matching'): ?>
+                                    <div class="form-group">
+                                        <label><strong>Left Items (Rows):</strong></label>
+                                        <div id="matching-rows-<?php echo $index + 1; ?>">
+                                            <?php 
+                                            $left_items = json_decode($question['choices'] ?? '[]', true);
+                                            if (is_array($left_items) && !empty($left_items)) {
+                                                foreach ($left_items as $leftIndex => $leftItem) {
+                                                    echo '<div class="input-group">';
+                                                    echo '<label for="left_item_' . ($leftIndex + 1) . '_' . ($index + 1) . '">Row ' . ($leftIndex + 1) . ':</label>';
+                                                    echo '<input type="text" id="left_item_' . ($leftIndex + 1) . '_' . ($index + 1) . '" name="questions[' . $index . '][left_items][]" value="' . htmlspecialchars($leftItem) . '" placeholder="Row ' . ($leftIndex + 1) . '" oninput="updateMatchingMatches(' . ($index + 1) . ')" required>';
+                                                    echo '<button type="button" class="remove-option" onclick="removeMatchingRow(' . ($index + 1) . ', ' . $leftIndex . ')">×</button>';
+                                                    echo '</div>';
+                                                }
+                                            } else {
+                                                // Show at least one empty input if no data
+                                                echo '<div class="input-group">';
+                                                echo '<label for="left_item_1_' . ($index + 1) . '">Row 1:</label>';
+                                                echo '<input type="text" id="left_item_1_' . ($index + 1) . '" name="questions[' . $index . '][left_items][]" placeholder="Row 1" oninput="updateMatchingMatches(' . ($index + 1) . ')" required>';
+                                                echo '<button type="button" class="remove-option" onclick="removeMatchingRow(' . ($index + 1) . ', 0)">×</button>';
+                                                echo '</div>';
+                                            }
+                                            ?>
+                                        </div>
+                                        <button type="button" class="add-option" onclick="addMatchingRow(<?php echo $index + 1; ?>)">
+                                            <i class="fas fa-plus"></i> Add Row
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label><strong>Right Items (Columns):</strong></label>
+                                        <div id="matching-columns-<?php echo $index + 1; ?>">
+                                            <?php 
+                                            $right_items = json_decode($question['right_items'] ?? '[]', true);
+                                            if (is_array($right_items) && !empty($right_items)) {
+                                                foreach ($right_items as $rightIndex => $rightItem) {
+                                                    echo '<div class="input-group">';
+                                                    echo '<label for="right_item_' . ($rightIndex + 1) . '_' . ($index + 1) . '">Column ' . ($rightIndex + 1) . ':</label>';
+                                                    echo '<input type="text" id="right_item_' . ($rightIndex + 1) . '_' . ($index + 1) . '" name="questions[' . $index . '][right_items][]" value="' . htmlspecialchars($rightItem) . '" placeholder="Column ' . ($rightIndex + 1) . '" oninput="updateMatchingMatches(' . ($index + 1) . ')" required>';
+                                                    echo '<button type="button" class="remove-option" onclick="removeMatchingColumn(' . ($index + 1) . ', ' . $rightIndex . ')">×</button>';
+                                                    echo '</div>';
+                                                }
+                                            } else {
+                                                // Show at least one empty input if no data
+                                                echo '<div class="input-group">';
+                                                echo '<label for="right_item_1_' . ($index + 1) . '">Column 1:</label>';
+                                                echo '<input type="text" id="right_item_1_' . ($index + 1) . '" name="questions[' . $index . '][right_items][]" placeholder="Column 1" oninput="updateMatchingMatches(' . ($index + 1) . ')" required>';
+                                                echo '<button type="button" class="remove-option" onclick="removeMatchingColumn(' . ($index + 1) . ', 0)">×</button>';
+                                                echo '</div>';
+                                            }
+                                            ?>
+                                        </div>
+                                        <button type="button" class="add-option" onclick="addMatchingColumn(<?php echo $index + 1; ?>)">
+                                            <i class="fas fa-plus"></i> Add Column
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label><strong>Correct Matches:</strong></label>
+                                        <div id="matching-matches-<?php echo $index + 1; ?>">
+                                            <!-- Will be populated by JavaScript -->
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <small style="color: #6b7280; font-style: italic;">
+                                            For matching questions, this will be used as the main instruction above all matching pairs.
+                                        </small>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="addQuestion()">
+                        <i class="fas fa-plus"></i> Add New Question
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                    <a href="question_bank.php" class="btn btn-secondary" style="margin-left: 10px;">
+                        <i class="fas fa-arrow-left"></i> Back to Question Bank
+                    </a>
+                </div>
+            </form>
+        </div>
+    <?php else: ?>
     <!-- Google Docs-Style Editor -->
     <div class="docs-editor-container">
         <div class="docs-header">
@@ -241,6 +707,11 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
                             <option value="<?= (int)$sec['id']; ?>" <?= $selectedSection == (int)$sec['id'] ? 'selected' : '' ?>><?= htmlspecialchars($sec['name']); ?></option>
                         <?php endforeach; ?>
                     </select>
+                    <label class="docs-btn docs-btn-outline" style="cursor:pointer; display:inline-flex; align-items:center; gap:8px;" title="Upload file to materials list">
+                        <i class="fas fa-upload"></i>
+                        <span>Upload file</span>
+                        <input type="file" id="attachmentInput" name="attachment" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.rtf,.odt,.odp,.xls,.xlsx,.csv,image/*" style="display:none;">
+                    </label>
         </div>
                 <div class="docs-actions">
                     <div class="collaboration-status" id="collaborationStatus">
@@ -269,29 +740,20 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
                 </div>
                 
         <!-- Hidden form for submission -->
-        <form id="materialForm" method="POST" style="display: none;">
-                        <input type="hidden" name="action" value="<?php echo $edit_mode ? 'edit_material' : 'add_material'; ?>">
-                        <?php if ($edit_mode): ?>
-                            <input type="hidden" name="id" value="<?php echo $edit_material['id']; ?>">
-                        <?php endif; ?>
+        <form id="materialForm" method="POST" enctype="multipart/form-data" style="display: none;">
+            <input type="hidden" name="action" value="<?php echo $edit_mode ? 'edit_material' : 'add_material'; ?>">
+            <?php if ($edit_mode): ?>
+                <input type="hidden" name="id" value="<?php echo $edit_material['id']; ?>">
+            <?php endif; ?>
             <input type="hidden" name="title" id="hidden-title">
             <input type="hidden" name="content" id="hidden-content">
+            
             <input type="hidden" name="section_id" id="hidden-section">
-                    </form>
+        </form>
                 </div>
                 
-    <?php
-    // Sections for filter dropdown
-    $teacherSectionsList = [];
-    try {
-        $stf = $conn->prepare("SELECT s.id, s.name FROM teacher_sections ts JOIN sections s ON s.id = ts.section_id WHERE ts.teacher_id = ?");
-        $stf->bind_param('i', $_SESSION['teacher_id']);
-        $stf->execute();
-        $rf = $stf->get_result();
-        while ($row = $rf->fetch_assoc()) { $teacherSectionsList[] = $row; }
-        $stf->close();
-    } catch (Throwable $e) { /* ignore */ }
-    ?>
+    <?php endif; ?>
+    
     <div class="content-section">
         <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
             <h2>Your Materials</h2>
@@ -302,6 +764,12 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
                     <?php foreach ($teacherSectionsList as $sec): ?>
                         <option value="<?= (int)$sec['id']; ?>" <?= $filterSecId==(int)$sec['id']?'selected':'' ?>><?= htmlspecialchars($sec['name']); ?></option>
                     <?php endforeach; ?>
+                </select>
+                <label for="mtype" style="color:#5f6368;font-size:13px;">Type:</label>
+                <select name="mtype" id="mtype" onchange="this.form.submit()" style="border:1px solid #dadce0;border-radius:6px;padding:6px 8px;background:#fff;">
+                    <option value="all" <?= $filterType==='all'?'selected':''; ?>>All</option>
+                    <option value="created" <?= $filterType==='created'?'selected':''; ?>>Created Materials</option>
+                    <option value="uploaded" <?= $filterType==='uploaded'?'selected':''; ?>>Uploaded Files</option>
                 </select>
             </form>
         </div>
@@ -327,7 +795,11 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
                             <td style="padding:10px 12px;">
                                 <div class="action-group">
                                     <button type="button" class="icon-btn secondary toggle-content-btn" title="View" onclick="toggleContent(<?= $material['id']; ?>, this)"><i class="fas fa-eye"></i></button>
-                                    <a href="?edit=<?= $material['id']; ?>" class="icon-btn primary" title="Edit"><i class="fas fa-pen"></i></a>
+                                    <a href="material_question_builder.php?material_id=<?= $material['id']; ?>" class="icon-btn success" title="Create Comprehension Questions"><i class="fas fa-question-circle"></i></a>
+                                    <a href="teacher_practice_tests.php" class="icon-btn practice-test" title="Create Practice Test"><i class="fas fa-clipboard-list"></i></a>
+                                    <?php if (empty($material['attachment_path'])): ?>
+                                        <a href="?edit=<?= $material['id']; ?>" class="icon-btn primary" title="Edit"><i class="fas fa-pen"></i></a>
+                                    <?php endif; ?>
                                     <form method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this material?')">
                                         <input type="hidden" name="action" value="delete_material">
                                         <input type="hidden" name="id" value="<?= $material['id']; ?>">
@@ -339,6 +811,38 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
                         <tr id="row-content-<?= $material['id']; ?>" style="display:none;">
                             <td colspan="4" style="padding:14px 12px;background:#fafafa;border-top:1px solid #f0f0f0;">
                                 <div class="material-content" id="content-<?= $material['id']; ?>"><?php echo $material['content']; ?></div>
+                                <?php if (!empty($material['attachment_path'])): ?>
+                                    <div style="margin-top:10px;">
+                                        <?php if (strpos($material['attachment_path'], '.pdf') !== false): ?>
+                                            <!-- PDF Viewer -->
+                                            <div id="pdf-viewer-<?= $material['id']; ?>" style="display:none;">
+                                                <iframe src="../<?= htmlspecialchars($material['attachment_path']); ?>#toolbar=1&navpanes=1&scrollbar=1" 
+                                                        style="width:100%;height:600px;border:1px solid #e0e0e0;border-radius:8px;"
+                                                        frameborder="0">
+                                                </iframe>
+                                            </div>
+                                            <!-- Download Link (hidden by default) -->
+                                            <div id="download-link-<?= $material['id']; ?>">
+                                                <a href="../<?= htmlspecialchars($material['attachment_path']); ?>" download class="docs-btn docs-btn-secondary" style="display:inline-flex;align-items:center;gap:8px;">
+                                                    <i class="fas fa-download"></i>
+                                                    Download attachment (<?= htmlspecialchars($material['attachment_name'] ?: 'file'); ?>)
+                                                </a>
+                                                <?php if (!empty($material['attachment_type']) && !empty($material['attachment_size'])): ?>
+                                                    <small style="margin-left:8px;color:#6b7280;">(<?= htmlspecialchars($material['attachment_type']); ?>, <?= number_format((int)$material['attachment_size']/1024, 1); ?> KB)</small>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php else: ?>
+                                            <!-- Non-PDF files show download link -->
+                                            <a href="../<?= htmlspecialchars($material['attachment_path']); ?>" download class="docs-btn docs-btn-secondary" style="display:inline-flex;align-items:center;gap:8px;">
+                                                <i class="fas fa-download"></i>
+                                                Download attachment (<?= htmlspecialchars($material['attachment_name'] ?: 'file'); ?>)
+                                            </a>
+                                            <?php if (!empty($material['attachment_type']) && !empty($material['attachment_size'])): ?>
+                                                <small style="margin-left:8px;color:#6b7280;">(<?= htmlspecialchars($material['attachment_type']); ?>, <?= number_format((int)$material['attachment_size']/1024, 1); ?> KB)</small>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -931,6 +1435,8 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
 .icon-btn.secondary { background: #f8fafc; }
 .icon-btn.primary { background: #1a73e8; border-color: #1a73e8; color: #fff; }
 .icon-btn.danger { background: #e11d48; border-color: #e11d48; color: #fff; }
+.icon-btn.success { background: #10b981; border-color: #10b981; color: #fff; }
+.icon-btn.practice-test { background: #8b5cf6; border-color: #8b5cf6; color: #fff; }
 .icon-btn:hover { filter: brightness(1.05); }
 
 .toggle-content-btn:hover {
@@ -1328,6 +1834,448 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
         flex-wrap: wrap;
         gap: 4px;
     }
+}
+
+/* Comprehension Question Edit Form Styles - Matching Material Question Builder */
+.container {
+    max-width: 2000px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.header {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.header h1 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.header p {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.question-form {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #555;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e1e5e9;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #4285f4;
+}
+
+.invalid {
+    border-color: #ef4444 !important;
+    background: #fff7f7;
+}
+
+.error-text {
+    color: #ef4444;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.question-item {
+    background: #f8f9fa;
+    border: 1px solid #e1e5e9;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.question-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.question-number {
+    font-weight: 600;
+    color: #333;
+    font-size: 16px;
+}
+
+.question-text {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e1e5e9;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-bottom: 15px;
+    transition: border-color 0.3s;
+}
+
+.question-text:focus {
+    outline: none;
+    border-color: #4285f4;
+}
+
+.options-container {
+    margin-bottom: 15px;
+}
+
+.option-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.option-input {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid #e1e5e9;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.3s;
+}
+
+.option-input:focus {
+    outline: none;
+    border-color: #4285f4;
+}
+
+.correct-option {
+    background: #d4edda;
+    border-color: #28a745;
+}
+
+.btn-remove {
+    background: #dc3545;
+    color: white;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.btn-remove:hover {
+    background: #c82333;
+}
+
+.form-actions {
+    text-align: center;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #e1e5e9;
+}
+
+.btn {
+    background: #4285f4;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 5px;
+    transition: background-color 0.3s;
+}
+
+.btn:hover {
+    background: #3367d6;
+}
+
+.btn-secondary {
+    background: #6c757d;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+}
+
+.btn-primary {
+    background: #28a745;
+}
+
+.btn-primary:hover {
+    background: #218838;
+}
+
+.add-option {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+.add-option:hover {
+    background: #218838;
+}
+
+.matching-container {
+    margin-top: 15px;
+}
+
+.matching-items {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 10px;
+}
+
+.matching-left,
+.matching-right {
+    border: 1px solid #e1e5e9;
+    border-radius: 6px;
+    padding: 15px;
+    background: #f8f9fa;
+}
+
+.matching-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.matching-row label {
+    min-width: 60px;
+    font-weight: 500;
+    color: #374151;
+}
+
+.matching-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.matching-input:focus {
+    outline: none;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.1);
+}
+
+.btn-remove-matching {
+    background: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.btn-remove-matching:hover {
+    background: #b91c1c;
+}
+
+.add-matching-btn {
+    background: #16a34a;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.add-matching-btn:hover {
+    background: #15803d;
+}
+
+.matching-left label,
+.matching-right label {
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 10px;
+    display: block;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+    
+    .question-form {
+        padding: 20px;
+    }
+    
+    .matching-items {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-actions {
+        text-align: center;
+    }
+    
+    .btn {
+        display: block;
+        width: 100%;
+        margin: 5px 0;
+    }
+}
+
+/* Matching question styles for edit form */
+.match-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 1px solid #e1e5e9;
+    border-radius: 6px;
+    background: #f8f9fa;
+}
+
+.match-row label {
+    min-width: 80px;
+    margin: 0;
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+}
+
+.match-select {
+    flex: 1;
+    padding: 10px 12px;
+    border: 2px solid #e1e5e9;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+    transition: border-color 0.3s;
+}
+
+.match-select:focus {
+    outline: none;
+    border-color: #4285f4;
+}
+
+/* Remove option button styling */
+.remove-option {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    min-width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+    flex-shrink: 0;
+}
+
+.remove-option:hover {
+    background: #c82333;
+}
+
+/* Add option button styling */
+.add-option {
+    margin-top: 10px;
+    padding: 8px 16px;
+    font-size: 14px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.add-option:hover {
+    background: #218838;
+}
+
+/* Input group styling to match create form */
+.input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 1px solid #e1e5e9;
+    border-radius: 6px;
+    background: #f8f9fa;
+}
+
+.input-group label {
+    min-width: 80px;
+    margin: 0;
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+}
+
+.input-group input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 2px solid #e1e5e9;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+    transition: border-color 0.3s;
+    margin: 0;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: #4285f4;
 }
 </style>
 
@@ -1800,7 +2748,8 @@ function updateStatus(status) {
 
 // Save document version for history
 function saveDocumentVersion() {
-    const title = document.getElementById('docs-title').value;
+    const titleInput = document.getElementById('docs-title');
+    const title = titleInput ? titleInput.value : '';
     const content = editorInstance ? editorInstance.getContent() : '';
     
     const version = {
@@ -1862,7 +2811,10 @@ function closeVersionHistory() {
 function restoreVersion(versionId) {
     const version = documentHistory.find(v => v.id === versionId);
     if (version) {
-        document.getElementById('docs-title').value = version.title;
+        const titleInput = document.getElementById('docs-title');
+        if (titleInput) {
+            titleInput.value = version.title;
+        }
         if (editorInstance) {
             editorInstance.setContent(version.content);
         }
@@ -1953,7 +2905,8 @@ function insertPageBreak() {
 
 // Export document
 function exportDocument() {
-    const title = document.getElementById('docs-title').value || 'Untitled Document';
+    const titleInput = document.getElementById('docs-title');
+    const title = titleInput ? titleInput.value : 'Untitled Document';
     const content = editorInstance ? editorInstance.getContent() : '';
     
     // Create downloadable HTML file
@@ -1990,23 +2943,26 @@ function exportDocument() {
 document.addEventListener('DOMContentLoaded', function() {
     const titleInput = document.getElementById('docs-title');
     
-    // Initialize TinyMCE (wait for offline fallback if needed)
-    (function startEditorWhenReady(){
-        if (window.tinymce && typeof window.tinymce.init === 'function') {
-            initializeTinyMCE();
-        } else {
-            let tries = 0;
-            const timer = setInterval(function(){
-                if (window.tinymce && typeof window.tinymce.init === 'function') {
-                    clearInterval(timer);
-                    initializeTinyMCE();
-                } else if (++tries > 50) { // ~5s timeout
-                    clearInterval(timer);
-                    console.warn('TinyMCE not loaded. Check offline path at ../assets/vendor/tinymce/');
-                }
-            }, 100);
-        }
-    })();
+    // Only initialize TinyMCE if we're not in comprehension edit mode
+    if (!document.getElementById('comprehensionEditForm')) {
+        // Initialize TinyMCE (wait for offline fallback if needed)
+        (function startEditorWhenReady(){
+            if (window.tinymce && typeof window.tinymce.init === 'function') {
+                initializeTinyMCE();
+            } else {
+                let tries = 0;
+                const timer = setInterval(function(){
+                    if (window.tinymce && typeof window.tinymce.init === 'function') {
+                        clearInterval(timer);
+                        initializeTinyMCE();
+                    } else if (++tries > 50) { // ~5s timeout
+                        clearInterval(timer);
+                        console.warn('TinyMCE not loaded. Check offline path at ../assets/vendor/tinymce/');
+                    }
+                }, 100);
+            }
+        })();
+    }
     
     // Handle successful form submission
     const urlParams = new URLSearchParams(window.location.search);
@@ -2029,28 +2985,38 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Auto-save on title change
-    titleInput.addEventListener('input', autoSave);
-    
-    // Prevent form resubmission
-    const form = document.getElementById('materialForm');
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            // Check if form is already being submitted
-            if (this.dataset.submitting === 'true') {
-                e.preventDefault();
-                console.log('Preventing duplicate form submission');
-                return false;
-            }
-            
-            // Mark as submitting
-            this.dataset.submitting = 'true';
-            
-            // Reset flag after a delay
-            setTimeout(() => {
-                this.dataset.submitting = 'false';
-            }, 3000);
-        });
+    // Only run these if we're not in comprehension edit mode
+    if (!document.getElementById('comprehensionEditForm')) {
+        // Auto-save on title change
+        if (titleInput) {
+            titleInput.addEventListener('input', autoSave);
+        }
+        
+        // Prevent form resubmission
+        const form = document.getElementById('materialForm');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                // Always move the visible file input into the form so the file is submitted reliably
+                const src = document.getElementById('attachmentInput');
+                if (src && src.files && src.files.length) {
+                    try { form.appendChild(src); } catch(e){}
+                }
+                // Check if form is already being submitted
+                if (this.dataset.submitting === 'true') {
+                    e.preventDefault();
+                    console.log('Preventing duplicate form submission');
+                    return false;
+                }
+                
+                // Mark as submitting
+                this.dataset.submitting = 'true';
+                
+                // Reset flag after a delay
+                setTimeout(() => {
+                    this.dataset.submitting = 'false';
+                }, 3000);
+            });
+        }
     }
     
     // Alternative success detection - check for any success indicators
@@ -2085,6 +3051,33 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Upload-only flow: when a file is selected, submit immediately to store as material attachment
+    // Only run this if we're not in comprehension edit mode
+    if (!document.getElementById('comprehensionEditForm')) {
+        const uploadBtn = document.getElementById('attachmentInput');
+        if (uploadBtn) {
+            uploadBtn.addEventListener('change', function(){
+                if (!this.files || !this.files.length) return;
+                const titleInput = document.getElementById('docs-title');
+                const title = titleInput ? titleInput.value : (this.files[0].name || 'Untitled upload');
+                let content = editorInstance ? editorInstance.getContent() : '';
+                if (!content || !content.trim()) { content = '<p></p>'; }
+                // Set hidden fields
+                const hiddenTitle = document.getElementById('hidden-title');
+                const hiddenContent = document.getElementById('hidden-content');
+                const hiddenSection = document.getElementById('hidden-section');
+                if (hiddenTitle) hiddenTitle.value = title;
+                if (hiddenContent) hiddenContent.value = content || '<p></p>';
+                const secSel = document.getElementById('material-section');
+                if (hiddenSection) hiddenSection.value = secSel ? (secSel.value || '') : '';
+                // Submit via the hidden form (attachment is synced in submit listener)
+                const form = document.getElementById('materialForm');
+                if (form) {
+                    if (typeof form.requestSubmit === 'function') { form.requestSubmit(); } else { form.submit(); }
+                }
+            });
+        }
+    }
 });
 
 // Format text functions
@@ -2383,18 +3376,22 @@ function showImageEditDialog(img) {
 
 // Click outside to deselect
 document.addEventListener('click', function(e) {
-    if (!e.target.closest('.docs-editor img') && !e.target.closest('.image-controls')) {
-        if (selectedImage) {
-            selectedImage.classList.remove('selected');
-            selectedImage = null;
-            hideImageControls();
+    // Only handle image deselection if we're not in comprehension edit mode
+    if (!document.getElementById('comprehensionEditForm')) {
+        if (!e.target.closest('.docs-editor img') && !e.target.closest('.image-controls')) {
+            if (selectedImage) {
+                selectedImage.classList.remove('selected');
+                selectedImage = null;
+                hideImageControls();
+            }
         }
     }
 });
 
 // Save document function
 function saveDocument() {
-    const title = document.getElementById('docs-title').value;
+    const titleInput = document.getElementById('docs-title');
+    const title = titleInput ? titleInput.value : '';
     
     // Get content from TinyMCE editor instance
     let content = '';
@@ -2454,7 +3451,7 @@ function saveDocument() {
     form.dataset.submitting = 'true';
     
     // Submit form
-    form.submit();
+    if (typeof form.requestSubmit === 'function') { form.requestSubmit(); } else { form.submit(); }
 }
 
 // Helper function for safe TinyMCE operations
@@ -2647,6 +3644,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, 5000);
     });
+    
+    // Initialize comprehension edit if we're in edit mode
+    if (typeof initializeComprehensionEdit === 'function') {
+        initializeComprehensionEdit();
+    }
 });
 
 // Toggle content visibility
@@ -2665,6 +3667,16 @@ function toggleContent(materialId, el) {
         if (toggleText) toggleText.textContent = 'Hide Content';
         button.classList.add('expanded');
         
+        // Check if this is a PDF file and toggle between viewer and download link
+        const pdfViewer = document.getElementById('pdf-viewer-' + materialId);
+        const downloadLink = document.getElementById('download-link-' + materialId);
+        
+        if (pdfViewer && downloadLink) {
+            // This is a PDF file - show viewer, hide download link
+            pdfViewer.style.display = 'block';
+            downloadLink.style.display = 'none';
+        }
+        
         // Smooth slide down animation
         content.style.opacity = '0';
         content.style.transform = 'translateY(-10px)';
@@ -2679,6 +3691,15 @@ function toggleContent(materialId, el) {
         content.style.opacity = '0';
         content.style.transform = 'translateY(-10px)';
         
+        // For PDF files, hide viewer and show download link
+        const pdfViewer = document.getElementById('pdf-viewer-' + materialId);
+        const downloadLink = document.getElementById('download-link-' + materialId);
+        
+        if (pdfViewer && downloadLink) {
+            pdfViewer.style.display = 'none';
+            downloadLink.style.display = 'block';
+        }
+        
         setTimeout(() => {
             if (row) { row.style.display = 'none'; } else { content.style.display = 'none'; }
             if (toggleText) toggleText.textContent = 'View Content';
@@ -2689,10 +3710,13 @@ function toggleContent(materialId, el) {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', function(e) {
-    // Ctrl+S to save
-    if (e.ctrlKey && e.key === 's') {
-        e.preventDefault();
-        saveDocument();
+    // Only apply shortcuts if we're not in comprehension edit mode
+    if (!document.getElementById('comprehensionEditForm')) {
+        // Ctrl+S to save
+        if (e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+            saveDocument();
+        }
     }
     
     // Ctrl+B for bold
@@ -2716,7 +3740,10 @@ document.addEventListener('keydown', function(e) {
 
 // Update toolbar state on selection change
 document.addEventListener('selectionchange', function() {
-    updateToolbarState();
+    // Only update toolbar if we're not in comprehension edit mode
+    if (!document.getElementById('comprehensionEditForm')) {
+        updateToolbarState();
+    }
 });
 
 // Image Editor functionality (TinyMCE integrated)
@@ -2812,21 +3839,26 @@ function updateImageToolbarState(img) {
 
 // Global click listener to deselect images
 document.addEventListener('click', function(e) {
-    if (!e.target.closest('.docs-editor img') && !e.target.closest('.image-context-menu')) {
-        document.querySelectorAll('.docs-editor img.selected').forEach(img => {
-            img.classList.remove('selected');
-        });
-        selectedImage = null;
-        hideImageControls();
-        // hideContextMenu function removed - using TinyMCE native features
+    // Only handle image deselection if we're not in comprehension edit mode
+    if (!document.getElementById('comprehensionEditForm')) {
+        if (!e.target.closest('.docs-editor img') && !e.target.closest('.image-context-menu')) {
+            document.querySelectorAll('.docs-editor img.selected').forEach(img => {
+                img.classList.remove('selected');
+            });
+            selectedImage = null;
+            hideImageControls();
+            // hideContextMenu function removed - using TinyMCE native features
+        }
     }
 });
 
 // Initialize image editor when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    // TinyMCE handles image editing natively
-    
-    // Make all existing images draggable
+    // Only initialize image editor if we're not in comprehension edit mode
+    if (!document.getElementById('comprehensionEditForm')) {
+        // TinyMCE handles image editing natively
+        
+        // Make all existing images draggable
     const existingImages = document.querySelectorAll('.docs-editor img');
     existingImages.forEach(img => {
         makeImageDraggable(img);
@@ -2850,14 +3882,568 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    const editor = document.querySelector('.docs-editor');
-    if (editor) {
-        observer.observe(editor, {
-            childList: true,
-            subtree: true
-        });
+        const editor = document.querySelector('.docs-editor');
+        if (editor) {
+            observer.observe(editor, {
+                childList: true,
+                subtree: true
+            });
+        }
+    }
+    
+    // Initialize comprehension question edit functionality only if in comprehension edit mode
+    if (document.getElementById('comprehensionEditForm')) {
+        initializeComprehensionEdit();
     }
 });
+
+// Comprehension Question Edit Functions
+let questionCount = 0;
+
+function initializeComprehensionEdit() {
+    // Set initial question count based on existing questions
+    const existingQuestions = document.querySelectorAll('.question-item');
+    questionCount = existingQuestions.length;
+    
+    // Show options for existing questions
+    existingQuestions.forEach((questionItem, index) => {
+        const questionTypeSelect = questionItem.querySelector('.question-type-select');
+        if (questionTypeSelect && questionTypeSelect.value) {
+            // Trigger the change event to show options for existing questions
+            handleQuestionTypeChange(questionTypeSelect, index + 1);
+            
+            // For matching questions, initialize the matches section
+            if (questionTypeSelect.value === 'matching') {
+                setTimeout(() => {
+                    updateMatchingMatches(index + 1);
+                }, 100);
+            }
+        }
+    });
+    
+    // Initialize section handling
+    initializeSectionHandling();
+    
+    // Initialize matching matches for existing matching questions
+    setTimeout(() => {
+        const existingMatchingQuestions = document.querySelectorAll('.question-item');
+        existingMatchingQuestions.forEach((questionItem, index) => {
+            const questionTypeSelect = questionItem.querySelector('.question-type-select');
+            if (questionTypeSelect && questionTypeSelect.value === 'matching') {
+                updateMatchingMatches(index + 1);
+            }
+        });
+    }, 500);
+}
+
+function addQuestion() {
+    questionCount++;
+    const container = document.getElementById('questions-container');
+    
+    const questionDiv = document.createElement('div');
+    questionDiv.className = 'question-item';
+    questionDiv.id = `question-${questionCount}`;
+    
+    questionDiv.innerHTML = `
+        <div class="question-header">
+            <span class="question-number">Question ${questionCount}</span>
+            <button type="button" class="btn-remove" onclick="removeQuestion(${questionCount})">
+                <i class="fas fa-trash"></i> Remove
+            </button>
+        </div>
+        
+        <div class="form-group">
+            <label>Question Type:</label>
+            <select class="question-type-select" onchange="handleQuestionTypeChange(this, ${questionCount})">
+                <option value="">Select Question Type</option>
+                <option value="mcq">Multiple Choice</option>
+                <option value="matching">Matching</option>
+                <option value="essay">Essay</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Question Text:</label>
+            <textarea class="question-text" placeholder="Enter your question here..." name="questions[${questionCount - 1}][question_text]" required></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label>Points:</label>
+            <input type="number" class="question-points" name="questions[${questionCount - 1}][points]" value="1" min="1" required>
+        </div>
+        
+        <input type="hidden" name="questions[${questionCount - 1}][id]" value="0">
+        <input type="hidden" name="questions[${questionCount - 1}][order_index]" value="${questionCount}">
+        
+        <div id="question-${questionCount}-options" class="question-options" style="display: none;">
+            <!-- Options will be shown here when question type is selected -->
+        </div>
+    `;
+    
+    container.appendChild(questionDiv);
+    
+    // Update question numbering after adding
+    updateQuestionNumbers();
+}
+
+function removeQuestion(questionNum) {
+    const questionDiv = document.getElementById(`question-${questionNum}`);
+    if (questionDiv) {
+        questionDiv.remove();
+        // Update question numbering after removal
+        updateQuestionNumbers();
+    }
+}
+
+function handleQuestionTypeChange(selectElement, questionNum) {
+    const questionType = selectElement.value;
+    const optionsContainer = document.getElementById(`question-${questionNum}-options`);
+    
+    // Check if this is an existing question with data (don't overwrite existing content)
+    const hasExistingContent = optionsContainer.innerHTML.trim() !== '';
+    
+    if (questionType === 'mcq') {
+        if (!hasExistingContent) {
+            optionsContainer.innerHTML = `
+                <div class="options-container">
+                    <label>Answer Choices:</label>
+                    <div class="option-item">
+                        <input type="text" class="option-input" name="questions[${questionNum - 1}][choices][0]" placeholder="Option A">
+                        <input type="radio" name="questions[${questionNum - 1}][answer_key]" value="0">
+                        <label>Correct</label>
+                    </div>
+                    <div class="option-item">
+                        <input type="text" class="option-input" name="questions[${questionNum - 1}][choices][1]" placeholder="Option B">
+                        <input type="radio" name="questions[${questionNum - 1}][answer_key]" value="1">
+                        <label>Correct</label>
+                    </div>
+                    <div class="option-item">
+                        <input type="text" class="option-input" name="questions[${questionNum - 1}][choices][2]" placeholder="Option C">
+                        <input type="radio" name="questions[${questionNum - 1}][answer_key]" value="2">
+                        <label>Correct</label>
+                    </div>
+                    <div class="option-item">
+                        <input type="text" class="option-input" name="questions[${questionNum - 1}][choices][3]" placeholder="Option D">
+                        <input type="radio" name="questions[${questionNum - 1}][answer_key]" value="3">
+                        <label>Correct</label>
+                    </div>
+                </div>
+            `;
+        }
+        optionsContainer.style.display = 'block';
+    } else if (questionType === 'matching') {
+        if (!hasExistingContent) {
+            optionsContainer.innerHTML = `
+                <div class="form-group">
+                    <label><strong>Left Items (Rows):</strong></label>
+                    <div id="matching-rows-${questionNum}">
+                        <div class="input-group">
+                            <label for="left_item_1_${questionNum}">Row 1:</label>
+                            <input type="text" id="left_item_1_${questionNum}" name="questions[${questionNum - 1}][left_items][]" placeholder="Row 1" oninput="updateMatchingMatches(${questionNum})" required>
+                            <button type="button" class="remove-option" onclick="removeMatchingRow(${questionNum}, 0)">×</button>
+                        </div>
+                        <div class="input-group">
+                            <label for="left_item_2_${questionNum}">Row 2:</label>
+                            <input type="text" id="left_item_2_${questionNum}" name="questions[${questionNum - 1}][left_items][]" placeholder="Row 2" oninput="updateMatchingMatches(${questionNum})" required>
+                            <button type="button" class="remove-option" onclick="removeMatchingRow(${questionNum}, 1)">×</button>
+                        </div>
+                    </div>
+                    <button type="button" class="add-option" onclick="addMatchingRow(${questionNum})">
+                        <i class="fas fa-plus"></i> Add Row
+                    </button>
+                </div>
+                
+                <div class="form-group">
+                    <label><strong>Right Items (Columns):</strong></label>
+                    <div id="matching-columns-${questionNum}">
+                        <div class="input-group">
+                            <label for="right_item_1_${questionNum}">Column 1:</label>
+                            <input type="text" id="right_item_1_${questionNum}" name="questions[${questionNum - 1}][right_items][]" placeholder="Column 1" oninput="updateMatchingMatches(${questionNum})" required>
+                            <button type="button" class="remove-option" onclick="removeMatchingColumn(${questionNum}, 0)">×</button>
+                        </div>
+                        <div class="input-group">
+                            <label for="right_item_2_${questionNum}">Column 2:</label>
+                            <input type="text" id="right_item_2_${questionNum}" name="questions[${questionNum - 1}][right_items][]" placeholder="Column 2" oninput="updateMatchingMatches(${questionNum})" required>
+                            <button type="button" class="remove-option" onclick="removeMatchingColumn(${questionNum}, 1)">×</button>
+                        </div>
+                    </div>
+                    <button type="button" class="add-option" onclick="addMatchingColumn(${questionNum})">
+                        <i class="fas fa-plus"></i> Add Column
+                    </button>
+                </div>
+                
+                <div class="form-group">
+                    <label><strong>Correct Matches:</strong></label>
+                    <div id="matching-matches-${questionNum}">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <small style="color: #6b7280; font-style: italic;">
+                        For matching questions, this will be used as the main instruction above all matching pairs.
+                    </small>
+                </div>
+            `;
+        }
+        optionsContainer.style.display = 'block';
+        
+        // Update matches after a short delay to ensure DOM is updated
+        setTimeout(() => {
+            updateMatchingMatches(questionNum);
+        }, 200);
+    } else if (questionType === 'essay') {
+        if (!hasExistingContent) {
+            optionsContainer.innerHTML = `
+                <div class="form-group">
+                    <label>Essay Question:</label>
+                    <p style="color: #666; font-style: italic;">No additional options needed for essay questions.</p>
+                </div>
+            `;
+        }
+        optionsContainer.style.display = 'block';
+    } else {
+        optionsContainer.style.display = 'none';
+    }
+}
+
+// Matching question functions
+function addMatchingRow(questionNum) {
+    const container = document.getElementById(`matching-rows-${questionNum}`);
+    // Count only input elements to get the correct row number
+    const existingInputs = container.querySelectorAll('input[type="text"]');
+    const rowNumber = existingInputs.length + 1;
+    const inputId = `left_item_${rowNumber}_${questionNum}`;
+    
+    const label = document.createElement('label');
+    label.setAttribute('for', inputId);
+    label.textContent = `Row ${rowNumber}:`;
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = inputId;
+    input.name = `questions[${questionNum - 1}][left_items][]`;
+    input.placeholder = `Row ${rowNumber}`;
+    input.required = true;
+    input.addEventListener('input', () => {
+        updateMatchingMatches(questionNum);
+    });
+    input.setAttribute('data-listener-added', 'true');
+    
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'remove-option';
+    removeBtn.textContent = '×';
+    removeBtn.onclick = () => removeMatchingRow(questionNum, rowNumber - 1);
+    
+    const inputGroup = document.createElement('div');
+    inputGroup.className = 'input-group';
+    inputGroup.appendChild(label);
+    inputGroup.appendChild(input);
+    inputGroup.appendChild(removeBtn);
+    
+    container.appendChild(inputGroup);
+    
+    // Automatically add a corresponding column
+    addMatchingColumn(questionNum);
+    
+    // Update matches after a short delay to ensure DOM is updated
+    setTimeout(() => {
+        updateMatchingMatches(questionNum);
+    }, 100);
+}
+
+function removeMatchingRow(questionNum, rowIndex) {
+    const rowsContainer = document.getElementById(`matching-rows-${questionNum}`);
+    const columnsContainer = document.getElementById(`matching-columns-${questionNum}`);
+    const rows = rowsContainer.querySelectorAll('.input-group');
+    const columns = columnsContainer.querySelectorAll('.input-group');
+    
+    if (rows.length <= 1) {
+        alert('You must have at least 1 row for a matching question');
+        return;
+    }
+    
+    // Remove the row
+    rows[rowIndex].remove();
+    
+    // Remove the corresponding column (same index)
+    if (columns[rowIndex]) {
+        columns[rowIndex].remove();
+    }
+    
+    // Renumber remaining rows
+    const remainingRows = rowsContainer.querySelectorAll('.input-group');
+    remainingRows.forEach((row, index) => {
+        const label = row.querySelector('label');
+        const input = row.querySelector('input');
+        const button = row.querySelector('.remove-option');
+        
+        if (label) {
+            label.textContent = `Row ${index + 1}:`;
+            label.setAttribute('for', `left_item_${index + 1}_${questionNum}`);
+        }
+        if (input) {
+            input.id = `left_item_${index + 1}_${questionNum}`;
+            input.name = `questions[${questionNum - 1}][left_items][]`;
+            input.placeholder = `Row ${index + 1}`;
+        }
+        if (button) button.setAttribute('onclick', `removeMatchingRow(${questionNum}, ${index})`);
+    });
+    
+    // Renumber remaining columns
+    const remainingColumns = columnsContainer.querySelectorAll('.input-group');
+    remainingColumns.forEach((column, index) => {
+        const label = column.querySelector('label');
+        const input = column.querySelector('input');
+        const button = column.querySelector('.remove-option');
+        
+        if (label) {
+            label.textContent = `Column ${index + 1}:`;
+            label.setAttribute('for', `right_item_${index + 1}_${questionNum}`);
+        }
+        if (input) {
+            input.id = `right_item_${index + 1}_${questionNum}`;
+            input.name = `questions[${questionNum - 1}][right_items][]`;
+            input.placeholder = `Column ${index + 1}`;
+        }
+        if (button) button.setAttribute('onclick', `removeMatchingColumn(${questionNum}, ${index})`);
+    });
+    
+    // Update matches after a short delay to ensure DOM is updated
+    setTimeout(() => {
+        updateMatchingMatches(questionNum);
+    }, 100);
+}
+
+function addMatchingColumn(questionNum) {
+    const container = document.getElementById(`matching-columns-${questionNum}`);
+    // Count only input elements to get the correct column number
+    const existingInputs = container.querySelectorAll('input[type="text"]');
+    const columnNumber = existingInputs.length + 1;
+    const inputId = `right_item_${columnNumber}_${questionNum}`;
+    
+    const label = document.createElement('label');
+    label.setAttribute('for', inputId);
+    label.textContent = `Column ${columnNumber}:`;
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = inputId;
+    input.name = `questions[${questionNum - 1}][right_items][]`;
+    input.placeholder = `Column ${columnNumber}`;
+    input.required = true;
+    input.addEventListener('input', () => {
+        updateMatchingMatches(questionNum);
+    });
+    input.setAttribute('data-listener-added', 'true');
+    
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'remove-option';
+    removeBtn.textContent = '×';
+    removeBtn.onclick = () => removeMatchingColumn(questionNum, columnNumber - 1);
+    
+    const inputGroup = document.createElement('div');
+    inputGroup.className = 'input-group';
+    inputGroup.appendChild(label);
+    inputGroup.appendChild(input);
+    inputGroup.appendChild(removeBtn);
+    
+    container.appendChild(inputGroup);
+    
+    // Update matches after a short delay to ensure DOM is updated
+    setTimeout(() => {
+        updateMatchingMatches(questionNum);
+    }, 100);
+}
+
+function removeMatchingColumn(questionNum, columnIndex) {
+    const columnsContainer = document.getElementById(`matching-columns-${questionNum}`);
+    const columns = columnsContainer.querySelectorAll('.input-group');
+    
+    if (columns.length <= 1) {
+        alert('You must have at least 1 column for a matching question');
+        return;
+    }
+    
+    // Remove the column
+    columns[columnIndex].remove();
+    
+    // Renumber remaining columns
+    const remainingColumns = columnsContainer.querySelectorAll('.input-group');
+    remainingColumns.forEach((column, index) => {
+        const label = column.querySelector('label');
+        const input = column.querySelector('input');
+        const button = column.querySelector('.remove-option');
+        
+        if (label) {
+            label.textContent = `Column ${index + 1}:`;
+            label.setAttribute('for', `right_item_${index + 1}_${questionNum}`);
+        }
+        if (input) {
+            input.id = `right_item_${index + 1}_${questionNum}`;
+            input.name = `questions[${questionNum - 1}][right_items][]`;
+            input.placeholder = `Column ${index + 1}`;
+        }
+        if (button) button.setAttribute('onclick', `removeMatchingColumn(${questionNum}, ${index})`);
+    });
+    
+    // Update matches after a short delay to ensure DOM is updated
+    setTimeout(() => {
+        updateMatchingMatches(questionNum);
+    }, 100);
+}
+
+function updateMatchingMatches(questionNum) {
+    const rows = document.querySelectorAll(`input[name="questions[${questionNum - 1}][left_items][]"]`);
+    const columns = document.querySelectorAll(`input[name="questions[${questionNum - 1}][right_items][]"]`);
+    const container = document.getElementById(`matching-matches-${questionNum}`);
+    const pointsField = document.querySelector(`#question-${questionNum} .question-points`);
+    
+    if (!container) {
+        return;
+    }
+    
+    // Get the existing correct matches from the hidden input or data attribute
+    const questionElement = document.getElementById(`question-${questionNum}`);
+    let existingMatches = [];
+    
+    // Try to get matches from the hidden input
+    const matchesInput = document.getElementById(`matches-data-${questionNum}`);
+    if (matchesInput && matchesInput.value) {
+        try {
+            existingMatches = JSON.parse(matchesInput.value);
+        } catch (e) {
+            // If not JSON, try to parse as comma-separated values
+            existingMatches = matchesInput.value.split(',').map(m => parseInt(m.trim())).filter(m => !isNaN(m));
+        }
+    }
+    
+    // Store current selections before clearing
+    const currentSelections = [];
+    const existingSelects = container.querySelectorAll('select');
+    existingSelects.forEach((select, index) => {
+        currentSelections[index] = select.value;
+    });
+    
+    container.innerHTML = '';
+    
+    // Count valid rows (non-empty)
+    const validRows = Array.from(rows).filter(row => row.value.trim());
+    const validColumns = Array.from(columns).filter(col => col.value.trim());
+    
+    // Calculate points based on number of all rows (not just valid ones)
+    const calculatedPoints = Math.max(rows.length, 1); // At least 1 point
+    if (pointsField) {
+        pointsField.value = calculatedPoints;
+        
+        // Force update the display
+        pointsField.dispatchEvent(new Event('input'));
+        pointsField.dispatchEvent(new Event('change'));
+    }
+    
+    rows.forEach((row, index) => {
+        const rowValue = row.value.trim();
+        const rowLabel = rowValue || `Row ${index + 1}`;
+        
+        const matchRow = document.createElement('div');
+        matchRow.className = 'match-row';
+        
+        const label = document.createElement('label');
+        label.textContent = `${rowLabel}:`;
+        
+        const select = document.createElement('select');
+        select.name = `questions[${questionNum - 1}][matches][]`;
+        select.className = 'match-select';
+        select.required = true;
+        
+        // Add default option
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Select match';
+        select.appendChild(defaultOption);
+        
+        // Add column options
+        columns.forEach((column, colIndex) => {
+            const colValue = column.value.trim();
+            if (colValue) {
+                const option = document.createElement('option');
+                option.value = colIndex;
+                option.textContent = colValue;
+                select.appendChild(option);
+            }
+        });
+        
+        // Restore selection: first try existing matches, then current selections
+        let selectedValue = '';
+        if (existingMatches[index] !== undefined && existingMatches[index] < columns.length) {
+            selectedValue = existingMatches[index];
+        } else if (currentSelections[index] && currentSelections[index] < columns.length) {
+            selectedValue = currentSelections[index];
+        }
+        
+        if (selectedValue !== '') {
+            select.value = selectedValue;
+        }
+        
+        matchRow.appendChild(label);
+        matchRow.appendChild(select);
+        container.appendChild(matchRow);
+    });
+}
+
+function updateQuestionNumbers() {
+    const questionItems = document.querySelectorAll('.question-item');
+    questionItems.forEach((item, index) => {
+        const numberSpan = item.querySelector('.question-number');
+        if (numberSpan) {
+            numberSpan.textContent = `Question ${index + 1}`;
+        }
+    });
+}
+
+function initializeSectionHandling() {
+    const sectionCheckboxes = document.querySelectorAll('.sec-box');
+    const hiddenInputsContainer = document.getElementById('sectionHiddenInputs');
+    
+    sectionCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSectionHiddenInputs);
+    });
+    
+    // Initialize hidden inputs
+    updateSectionHiddenInputs();
+}
+
+function updateSectionHiddenInputs() {
+    const checkedBoxes = document.querySelectorAll('.sec-box:checked');
+    const hiddenInputsContainer = document.getElementById('sectionHiddenInputs');
+    
+    // Check if the container exists before trying to modify it
+    if (!hiddenInputsContainer) {
+        return;
+    }
+    
+    // Clear existing hidden inputs
+    hiddenInputsContainer.innerHTML = '';
+    
+    // Add hidden inputs for checked sections
+    checkedBoxes.forEach(checkbox => {
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'section_ids[]';
+        hiddenInput.value = checkbox.value;
+        hiddenInputsContainer.appendChild(hiddenInput);
+    });
+}
+
+function showError(elementId, message) {
+    const errorElement = document.getElementById(elementId);
+    if (errorElement) {
+        errorElement.textContent = message;
+        errorElement.style.display = 'block';
+    }
+}
 </script>
 
 <!-- TinyMCE handles image editing natively -->
