@@ -80,7 +80,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $attSize = (int)($_FILES['attachment']['size'] ?? 0);
                 $hasFile = true;
             }
-<<<<<<< HEAD
         }
 
         // If a file is provided but title/content are empty, derive sensible defaults
@@ -95,27 +94,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Validate: allow either (title AND content) OR (file attached)
         if ($teacher_id && (($title && $content) || $hasFile)) {
-=======
-            // Handle file upload (optional)
-            $attPath = null; $attName = null; $attType = null; $attSize = null;
-            if (!empty($_FILES)) { error_log('FILES: ' . print_r($_FILES, true)); }
-            if (!empty($_FILES['attachment']) && is_uploaded_file($_FILES['attachment']['tmp_name'])) {
-                $uploadDir = __DIR__ . '/../uploads/materials';
-                if (!is_dir($uploadDir)) { @mkdir($uploadDir, 0777, true); }
-                $orig = $_FILES['attachment']['name'];
-                $safeName = preg_replace('/[^a-zA-Z0-9_\.-]+/', '_', $orig);
-                $ext = pathinfo($safeName, PATHINFO_EXTENSION);
-                $fileName = uniqid('mat_', true) . ($ext? ('.' . $ext) : '');
-                $destAbs = rtrim($uploadDir, '/\\') . DIRECTORY_SEPARATOR . $fileName;
-                if (move_uploaded_file($_FILES['attachment']['tmp_name'], $destAbs)) {
-                    $attPath = 'uploads/materials/' . $fileName; // relative to Teacher/
-                    $attName = $orig;
-                    $attType = $_FILES['attachment']['type'] ?? null;
-                    $attSize = (int)($_FILES['attachment']['size'] ?? 0);
-                }
-            }
-            
->>>>>>> 2fcad03c27dbe56cf4dba808f3f13a749f478b16
             $stmt = $conn->prepare("INSERT INTO reading_materials (teacher_id, section_id, title, content, attachment_path, attachment_name, attachment_type, attachment_size, theme_settings, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
             if (!$stmt) {
                 throw new Exception('Failed to prepare statement: ' . $conn->error);
@@ -2980,7 +2958,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Only initialize TinyMCE if we're not in comprehension edit mode
     if (!document.getElementById('comprehensionEditForm')) {
-<<<<<<< HEAD
         // Ensure Save button is always clickable and triggers saveDocument()
         try {
             var explicitSaveBtn = document.querySelector('.docs-actions .docs-btn.docs-btn-secondary');
@@ -3006,8 +2983,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (typeof saveDocument === 'function') { saveDocument(); }
             }
         }, true);
-=======
->>>>>>> 2fcad03c27dbe56cf4dba808f3f13a749f478b16
         // Initialize TinyMCE (wait for offline fallback if needed)
         (function startEditorWhenReady(){
             if (window.tinymce && typeof window.tinymce.init === 'function') {
