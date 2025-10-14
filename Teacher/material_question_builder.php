@@ -796,6 +796,41 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
                 <button type="button" class="btn btn-secondary" onclick="addQuestion()" style="margin-right: 10px;">
                     <i class="fas fa-plus"></i> Add New Question
                 </button>
+<<<<<<< HEAD
+=======
+                <?php 
+                $aiAvailable = false;
+                $aiProvider = 'none';
+                
+                // Check OpenAI
+                if (file_exists(__DIR__ . '/config/ai_config.php')) {
+                    require_once __DIR__ . '/config/ai_config.php';
+                    if (isAIEnabled()) {
+                        $aiAvailable = true;
+                        $aiProvider = 'openai';
+                    }
+                }
+                
+                // Check Ollama
+                if (!$aiAvailable && file_exists(__DIR__ . '/config/ollama_config.php')) {
+                    require_once __DIR__ . '/config/ollama_config.php';
+                    $ollamaStatus = checkOllamaStatus();
+                    if ($ollamaStatus['running'] && $ollamaStatus['model_available']) {
+                        $aiAvailable = true;
+                        $aiProvider = 'ollama';
+                    }
+                }
+                ?>
+                
+                <button type="button" class="btn btn-primary" onclick="showQuickQuestionTemplates()" style="margin-right: 10px;">
+                    <i class="fas fa-magic"></i> Quick Templates
+                </button>
+                <?php if ($aiAvailable): ?>
+                <button type="button" class="btn btn-success" onclick="showAIGeneratorModal()" style="margin-right: 10px;">
+                    <i class="fas fa-robot"></i> AI Generate (<?= strtoupper($aiProvider) ?>)
+                </button>
+                <?php endif; ?>
+>>>>>>> 2fcad03c27dbe56cf4dba808f3f13a749f478b16
                 <button type="button" class="btn btn-primary" onclick="saveQuestions()" style="font-size: 18px; padding: 15px 30px; margin-top: 20px;">
                     <i class="fas fa-save"></i> Create Questions
                 </button>
@@ -807,6 +842,74 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
     </div>
 </div>
 
+<<<<<<< HEAD
+=======
+<!-- AI Generator Modal -->
+<div id="aiGeneratorModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+    <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 600px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px;">
+            <h2 style="margin: 0; color: #333;"><i class="fas fa-robot"></i> AI Question Generator</h2>
+            <span class="close" onclick="closeAIGeneratorModal()" style="color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+        </div>
+        
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Number of Questions:</label>
+                <select id="aiNumQuestions" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="3">3 Questions</option>
+                    <option value="5" selected>5 Questions</option>
+                    <option value="7">7 Questions</option>
+                    <option value="10">10 Questions</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Difficulty Level:</label>
+                <select id="aiDifficulty" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="easy">Easy</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="hard">Hard</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Question Types:</label>
+                <div style="display: flex; gap: 15px; margin-top: 8px;">
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        <input type="checkbox" id="aiTypeMcq" checked style="margin: 0;">
+                        <span>Multiple Choice</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        <input type="checkbox" id="aiTypeMatching" checked style="margin: 0;">
+                        <span>Matching</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        <input type="checkbox" id="aiTypeEssay" checked style="margin: 0;">
+                        <span>Essay</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Material Preview:</label>
+                <div id="aiMaterialPreview" style="max-height: 200px; overflow-y: auto; padding: 10px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; line-height: 1.4;">
+                    <!-- Material content will be loaded here -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal-footer" style="margin-top: 20px; text-align: right; border-top: 1px solid #eee; padding-top: 15px;">
+            <button type="button" class="btn btn-secondary" onclick="closeAIGeneratorModal()" style="margin-right: 10px;">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+            <button type="button" class="btn btn-success" onclick="generateAIQuestions()" id="aiGenerateBtn">
+                <i class="fas fa-robot"></i> Generate Questions
+            </button>
+        </div>
+    </div>
+</div>
+
+>>>>>>> 2fcad03c27dbe56cf4dba808f3f13a749f478b16
 <script>
 let questionCount = 0;
 
@@ -1634,6 +1737,1130 @@ function updateCorrectMatchOptions(questionNum) {
     });
 }
 
+<<<<<<< HEAD
+=======
+// AI Generation Functions
+function showAIGeneratorModal() {
+    const modal = document.getElementById('aiGeneratorModal');
+    const materialContentElement = document.querySelector('.material-content');
+    const materialTitle = document.querySelector('.material-title').textContent;
+    
+    // Get material content - handle different content types
+    let materialContent = '';
+    
+    if (materialContentElement) {
+        // Check if it's a PDF iframe
+        const iframe = materialContentElement.querySelector('iframe');
+        if (iframe) {
+            // For PDF files, we need to provide educational content based on the title
+            materialContent = generateEducationalContentFromTitle(materialTitle);
+        } else {
+            // For text content
+            materialContent = materialContentElement.textContent || materialContentElement.innerText || '';
+        }
+    }
+    
+    // If content is still empty or too short, generate educational content
+    if (!materialContent || materialContent.trim().length < 100) {
+        materialContent = generateEducationalContentFromTitle(materialTitle);
+    }
+    
+    // Load material preview
+    const preview = document.getElementById('aiMaterialPreview');
+    const truncatedContent = materialContent.length > 500 ? 
+        materialContent.substring(0, 500) + '...' : materialContent;
+    preview.textContent = truncatedContent;
+    
+    modal.style.display = 'block';
+}
+
+function generateEducationalContentFromTitle(title) {
+    // Generate educational content based on the material title
+    const lowerTitle = title.toLowerCase();
+    
+    if (lowerTitle.includes('english') || lowerTitle.includes('language')) {
+        return "This English language learning material contains reading comprehension exercises, grammar lessons, and writing activities. The document includes literary texts, vocabulary exercises, and language skills development activities. The material covers topics such as reading comprehension, grammar rules, vocabulary building, creative writing, and literary analysis. Students will learn about different text types, story elements, character development, and how to analyze and interpret various forms of literature. The content is designed to enhance reading, writing, and communication skills for Grade 6 students.";
+    } else if (lowerTitle.includes('math') || lowerTitle.includes('mathematics')) {
+        return "This mathematics learning material contains problem-solving exercises, mathematical concepts, and practice activities. The document includes step-by-step solutions, examples, and mathematical reasoning exercises. The material covers various mathematical topics including arithmetic operations, fractions, decimals, geometry, measurement, and problem-solving strategies. Students will learn about number systems, basic operations, geometric shapes, measurement units, and how to apply mathematical concepts to real-world situations. The content is designed to develop mathematical thinking and problem-solving skills for Grade 6 students.";
+    } else if (lowerTitle.includes('science')) {
+        return "This science learning material contains scientific concepts, experiments, and educational activities. The document includes information about natural phenomena, scientific methods, and hands-on experiments. The material covers topics such as the scientific method, basic physics concepts, chemistry fundamentals, biology basics, earth science, and environmental studies. Students will learn about observation, hypothesis formation, experimentation, data collection, and scientific reasoning. The content is designed to develop scientific thinking and inquiry skills for Grade 6 students.";
+    } else if (lowerTitle.includes('quarter') || lowerTitle.includes('module')) {
+        return "This is a comprehensive educational module containing structured learning materials. The document includes lessons, activities, and educational resources designed for student learning. The material covers key concepts and learning objectives with examples and exercises. Students will engage with various educational activities including reading comprehension, problem-solving tasks, creative exercises, and assessment activities. The content is organized to provide a systematic learning experience that builds upon previous knowledge and prepares students for advanced concepts. The material is designed to support Grade 6 students in their academic development.";
+    } else {
+        return "This educational material contains structured learning content covering various academic subjects and topics suitable for Grade 6 students. The document includes lessons, activities, and educational resources designed to enhance student learning. The material covers key concepts, learning objectives, examples, and exercises that help students develop their knowledge and skills. Students will engage with reading materials, problem-solving activities, creative tasks, and assessment exercises. The content is designed to be age-appropriate and aligned with Grade 6 curriculum standards, providing a comprehensive learning experience that supports academic growth and development.";
+    }
+}
+
+function closeAIGeneratorModal() {
+    const modal = document.getElementById('aiGeneratorModal');
+    modal.style.display = 'none';
+}
+
+function showQuickQuestionTemplates() {
+    const materialTitle = document.querySelector('.material-title').textContent;
+    const lowerTitle = materialTitle.toLowerCase();
+    
+    let templates = [];
+    
+    if (lowerTitle.includes('english') || lowerTitle.includes('language') || lowerTitle.includes('figurative')) {
+        templates = [
+            {
+                type: 'mcq',
+                question: 'What is figurative language?',
+                options: ['Language that uses literal meanings', 'Language that uses nonliteral meanings', 'Language that is always formal', 'Language that is always informal'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'Which of the following is an example of a simile?',
+                options: ['The sun is a golden ball', 'She runs like the wind', 'The tree danced in the wind', 'Time is money'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is a metaphor?',
+                options: ['A comparison using "like" or "as"', 'A direct comparison without "like" or "as"', 'Giving human traits to objects', 'An exaggeration for effect'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'Which sentence contains personification?',
+                options: ['The wind blew strongly', 'The wind whispered through the trees', 'The wind was very loud', 'The wind stopped blowing'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is an idiom?',
+                options: ['A literal expression', 'A phrase with a different meaning than its words', 'A type of metaphor', 'A comparison using "as"'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'Which is an example of hyperbole?',
+                options: ['I am very tired', 'I am so tired I could sleep for a year', 'I need to rest', 'I should go to bed'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is alliteration?',
+                options: ['Repeating vowel sounds', 'Repeating consonant sounds', 'Repeating words', 'Repeating phrases'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'Which sentence uses onomatopoeia?',
+                options: ['The cat was very quiet', 'The cat meowed loudly', 'The cat was sleeping', 'The cat was hungry'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'matching',
+                question: 'Match the figurative language types with their definitions:',
+                leftItems: ['Simile', 'Metaphor', 'Personification', 'Hyperbole'],
+                rightItems: ['Comparing using "like" or "as"', 'Direct comparison without "like" or "as"', 'Giving human traits to non-human things', 'Extreme exaggeration for effect'],
+                matches: [0, 1, 2, 3],
+                points: 3
+            },
+            {
+                type: 'matching',
+                question: 'Match the examples with their figurative language types:',
+                leftItems: ['"Busy as a bee"', '"The stars danced"', '"It\'s raining cats and dogs"', '"Her voice is music"'],
+                rightItems: ['Simile', 'Personification', 'Idiom', 'Metaphor'],
+                matches: [0, 1, 2, 3],
+                points: 3
+            },
+            {
+                type: 'essay',
+                question: 'Explain the difference between a simile and a metaphor. Give two examples of each.',
+                rubric: 'Definition (2 points), Examples (2 points), Clarity (1 point)',
+                points: 5
+            },
+            {
+                type: 'essay',
+                question: 'Write a short paragraph using at least three different types of figurative language.',
+                rubric: 'Variety (2 points), Creativity (2 points), Grammar (1 point)',
+                points: 5
+            },
+            {
+                type: 'mcq',
+                question: 'What is the purpose of using figurative language?',
+                options: ['To confuse readers', 'To make writing more interesting and vivid', 'To make sentences longer', 'To use difficult words'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'Which sentence contains alliteration?',
+                options: ['The big brown bear', 'The bear was very big', 'The bear ate honey', 'The bear slept quietly'],
+                correct: 'A',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the meaning of the idiom "break the ice"?',
+                options: ['To break frozen water', 'To start a conversation', 'To be very cold', 'To break something'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'Which is an example of onomatopoeia?',
+                options: ['The dog was barking', 'Woof! Woof!', 'The dog was loud', 'The dog was angry'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What type of figurative language is "The classroom was a zoo"?',
+                options: ['Simile', 'Metaphor', 'Personification', 'Hyperbole'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'Which sentence uses hyperbole?',
+                options: ['I am hungry', 'I am so hungry I could eat a horse', 'I need to eat', 'I should have lunch'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is personification in "The flowers danced in the breeze"?',
+                options: ['The word "danced"', 'The word "flowers"', 'The word "breeze"', 'The word "in"'],
+                correct: 'A',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'Which is the best example of a simile?',
+                options: ['She is a star', 'She shines like a star', 'She is very bright', 'She is talented'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'essay',
+                question: 'Identify and explain the figurative language used in this sentence: "The old car coughed and sputtered before finally starting."',
+                rubric: 'Identification (2 points), Explanation (2 points), Understanding (1 point)',
+                points: 5
+            }
+        ];
+    } else if (lowerTitle.includes('math') || lowerTitle.includes('mathematics')) {
+        templates = [
+            {
+                type: 'mcq',
+                question: 'What is the result of 15 + 27?',
+                options: ['32', '42', '52', '62'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'Which fraction is equivalent to 1/2?',
+                options: ['2/4', '3/6', '4/8', 'All of the above'],
+                correct: 'D',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is 8 × 7?',
+                options: ['54', '56', '58', '60'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is 144 ÷ 12?',
+                options: ['10', '11', '12', '13'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the area of a rectangle with length 8 cm and width 5 cm?',
+                options: ['13 cm²', '26 cm²', '40 cm²', '45 cm²'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the perimeter of a square with side length 6 cm?',
+                options: ['12 cm', '18 cm', '24 cm', '36 cm'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is 3/4 + 1/4?',
+                options: ['1/2', '3/4', '1', '4/4'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is 2.5 + 1.7?',
+                options: ['3.2', '4.2', '4.12', '4.22'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the value of 5²?',
+                options: ['10', '15', '20', '25'],
+                correct: 'D',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the square root of 64?',
+                options: ['6', '7', '8', '9'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is 15% of 200?',
+                options: ['20', '25', '30', '35'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the mean of 4, 6, 8, 10, 12?',
+                options: ['6', '7', '8', '9'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the mode of 2, 3, 3, 4, 5, 3?',
+                options: ['2', '3', '4', '5'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the median of 1, 3, 5, 7, 9?',
+                options: ['3', '4', '5', '6'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is 3/5 as a decimal?',
+                options: ['0.3', '0.5', '0.6', '0.8'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is 0.75 as a fraction?',
+                options: ['3/4', '7/10', '75/100', 'Both A and C'],
+                correct: 'D',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the next number in the pattern: 2, 4, 8, 16, ___?',
+                options: ['20', '24', '32', '64'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the greatest common factor of 12 and 18?',
+                options: ['3', '4', '6', '9'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the least common multiple of 4 and 6?',
+                options: ['10', '12', '18', '24'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the volume of a cube with side length 3 cm?',
+                options: ['9 cm³', '18 cm³', '27 cm³', '36 cm³'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'matching',
+                question: 'Match the operations with their symbols:',
+                leftItems: ['Addition', 'Subtraction', 'Multiplication', 'Division'],
+                rightItems: ['+', '-', '×', '÷'],
+                matches: [0, 1, 2, 3],
+                points: 3
+            },
+            {
+                type: 'essay',
+                question: 'Explain how to solve a word problem step by step. Use an example.',
+                rubric: 'Understanding (2 points), Steps (2 points), Example (1 point)',
+                points: 5
+            }
+        ];
+    } else if (lowerTitle.includes('science')) {
+        templates = [
+            {
+                type: 'mcq',
+                question: 'What is the scientific method?',
+                options: ['A way to prove theories', 'A systematic approach to solving problems', 'A type of experiment', 'A scientific law'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'Which of the following is a renewable energy source?',
+                options: ['Coal', 'Oil', 'Solar power', 'Natural gas'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the process by which plants make their own food?',
+                options: ['Respiration', 'Photosynthesis', 'Digestion', 'Transpiration'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the largest planet in our solar system?',
+                options: ['Earth', 'Saturn', 'Jupiter', 'Neptune'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the chemical symbol for water?',
+                options: ['H2O', 'CO2', 'O2', 'H2SO4'],
+                correct: 'A',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the center of an atom called?',
+                options: ['Electron', 'Proton', 'Nucleus', 'Neutron'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the force that pulls objects toward Earth?',
+                options: ['Magnetism', 'Gravity', 'Friction', 'Inertia'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the process of water turning into vapor?',
+                options: ['Condensation', 'Evaporation', 'Precipitation', 'Transpiration'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the hardest natural substance on Earth?',
+                options: ['Gold', 'Iron', 'Diamond', 'Quartz'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the speed of light?',
+                options: ['300,000 km/s', '3,000,000 km/s', '30,000 km/s', '3,000 km/s'],
+                correct: 'A',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the study of living things called?',
+                options: ['Physics', 'Chemistry', 'Biology', 'Geology'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the smallest unit of life?',
+                options: ['Tissue', 'Organ', 'Cell', 'Molecule'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the process of cell division called?',
+                options: ['Photosynthesis', 'Respiration', 'Mitosis', 'Osmosis'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the protective layer around Earth called?',
+                options: ['Mantle', 'Crust', 'Atmosphere', 'Core'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the study of weather called?',
+                options: ['Geology', 'Meteorology', 'Astronomy', 'Oceanography'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the energy source for most life on Earth?',
+                options: ['Moon', 'Stars', 'Sun', 'Earth\'s core'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the process of rocks breaking down called?',
+                options: ['Erosion', 'Weathering', 'Deposition', 'Sedimentation'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the study of fossils called?',
+                options: ['Paleontology', 'Archaeology', 'Anthropology', 'Geology'],
+                correct: 'A',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the chemical symbol for gold?',
+                options: ['Go', 'Gd', 'Au', 'Ag'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the process of plants losing water through leaves?',
+                options: ['Photosynthesis', 'Transpiration', 'Respiration', 'Evaporation'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'matching',
+                question: 'Match the planets with their characteristics:',
+                leftItems: ['Mercury', 'Venus', 'Earth', 'Mars'],
+                rightItems: ['Closest to Sun', 'Hottest planet', 'Has life', 'Red planet'],
+                matches: [0, 1, 2, 3],
+                points: 3
+            },
+            {
+                type: 'essay',
+                question: 'Describe the water cycle and its importance to life on Earth.',
+                rubric: 'Accuracy (2 points), Completeness (2 points), Clarity (1 point)',
+                points: 5
+            }
+        ];
+    } else {
+        templates = [
+            {
+                type: 'mcq',
+                question: 'What is the main topic of this material?',
+                options: ['The topic is clearly stated', 'The topic is mentioned briefly', 'The topic is not discussed', 'The topic is confusing'],
+                correct: 'A',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'Which statement best summarizes the content?',
+                options: ['Statement A', 'Statement B', 'Statement C', 'Statement D'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the purpose of this material?',
+                options: ['To entertain', 'To inform', 'To persuade', 'All of the above'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'Who is the intended audience?',
+                options: ['Children', 'Adults', 'Students', 'Professionals'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the reading level of this material?',
+                options: ['Elementary', 'Middle school', 'High school', 'College'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What type of text is this?',
+                options: ['Narrative', 'Expository', 'Persuasive', 'Descriptive'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the tone of this material?',
+                options: ['Formal', 'Informal', 'Humorous', 'Serious'],
+                correct: 'A',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the main idea of the first paragraph?',
+                options: ['Idea A', 'Idea B', 'Idea C', 'Idea D'],
+                correct: 'A',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What supporting details are provided?',
+                options: ['Many details', 'Some details', 'Few details', 'No details'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What conclusion can be drawn?',
+                options: ['Conclusion A', 'Conclusion B', 'Conclusion C', 'Conclusion D'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What vocabulary words are important?',
+                options: ['All words', 'Key terms', 'Long words', 'Short words'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What questions does this material answer?',
+                options: ['Who and what', 'When and where', 'Why and how', 'All of the above'],
+                correct: 'D',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the organizational pattern?',
+                options: ['Chronological', 'Cause and effect', 'Compare and contrast', 'Problem and solution'],
+                correct: 'A',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the author\'s point of view?',
+                options: ['First person', 'Second person', 'Third person', 'Objective'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the most important information?',
+                options: ['Introduction', 'Main content', 'Conclusion', 'All sections'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What connections can be made?',
+                options: ['To other texts', 'To personal experience', 'To world events', 'All of the above'],
+                correct: 'D',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the difficulty level?',
+                options: ['Easy', 'Medium', 'Hard', 'Very hard'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What prior knowledge is needed?',
+                options: ['None', 'Some', 'A lot', 'Expert level'],
+                correct: 'B',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the best way to study this material?',
+                options: ['Read once', 'Read and take notes', 'Read and discuss', 'Read and practice'],
+                correct: 'C',
+                points: 2
+            },
+            {
+                type: 'mcq',
+                question: 'What is the most challenging part?',
+                options: ['Vocabulary', 'Concepts', 'Application', 'All of the above'],
+                correct: 'D',
+                points: 2
+            },
+            {
+                type: 'matching',
+                question: 'Match the concepts with their definitions:',
+                leftItems: ['Main idea', 'Supporting details', 'Conclusion', 'Evidence'],
+                rightItems: ['Central point', 'Supporting information', 'Final thoughts', 'Proof or examples'],
+                matches: [0, 1, 2, 3],
+                points: 3
+            },
+            {
+                type: 'essay',
+                question: 'Explain the key concepts from this material and how they relate to each other.',
+                rubric: 'Understanding (2 points), Examples (2 points), Analysis (1 point)',
+                points: 5
+            }
+        ];
+    }
+    
+    // Clear existing questions
+    document.getElementById('questions-container').innerHTML = '';
+    questionCount = 0;
+    
+    // Add template questions
+    templates.forEach(template => {
+        addTemplateQuestion(template);
+    });
+    
+    alert(`Added ${templates.length} template questions based on your material: "${materialTitle}"\n\nYou can now edit these questions and add more as needed!`);
+}
+
+function addTemplateQuestion(template) {
+    questionCount++;
+    const container = document.getElementById('questions-container');
+    
+    const questionDiv = document.createElement('div');
+    questionDiv.className = 'question-item';
+    questionDiv.id = `question-${questionCount}`;
+    
+    let questionHTML = `
+        <div class="question-header">
+            <span class="question-number">Question ${questionCount}</span>
+            <span class="question-type">${template.type.toUpperCase()}</span>
+            <button type="button" class="btn-remove" onclick="removeQuestion(${questionCount})">
+                <i class="fas fa-trash"></i> Remove
+            </button>
+        </div>
+        
+        <div class="form-group">
+            <label>Question Type:</label>
+            <select class="question-type-select" onchange="handleQuestionTypeChange(this, ${questionCount})">
+                <option value="mcq" ${template.type === 'mcq' ? 'selected' : ''}>Multiple Choice</option>
+                <option value="matching" ${template.type === 'matching' ? 'selected' : ''}>Matching</option>
+                <option value="essay" ${template.type === 'essay' ? 'selected' : ''}>Essay</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Question Text:</label>
+            <textarea class="question-text" placeholder="Enter your question here..." name="question_${questionCount}_text" required>${template.question}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label>Points:</label>
+            <input type="number" class="question-points" name="question_${questionCount}_points" value="${template.points}" min="1" required>
+        </div>
+        
+        <div id="question-${questionCount}-options" class="question-options">
+    `;
+    
+    if (template.type === 'mcq') {
+        questionHTML += `
+            <div class="form-group">
+                <label><strong>Multiple Choice Options</strong></label>
+                <div class="options-container">
+                    <div class="option-row">
+                        <label>Option A:</label>
+                        <input type="text" class="option-input" placeholder="" name="question_${questionCount}_option_0" value="${template.options[0] || ''}" required>
+                        <span class="correct-label">Correct Answer:</span>
+                        <input type="radio" name="correct_${questionCount}" value="0" ${template.correct === 'A' ? 'checked' : ''} required>
+                        <button type="button" class="btn-remove-option" onclick="removeOption(${questionCount}, 0)">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="option-row">
+                        <label>Option B:</label>
+                        <input type="text" class="option-input" placeholder="" name="question_${questionCount}_option_1" value="${template.options[1] || ''}" required>
+                        <span class="correct-label">Correct Answer:</span>
+                        <input type="radio" name="correct_${questionCount}" value="1" ${template.correct === 'B' ? 'checked' : ''} required>
+                        <button type="button" class="btn-remove-option" onclick="removeOption(${questionCount}, 1)">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="option-row">
+                        <label>Option C:</label>
+                        <input type="text" class="option-input" placeholder="" name="question_${questionCount}_option_2" value="${template.options[2] || ''}" required>
+                        <span class="correct-label">Correct Answer:</span>
+                        <input type="radio" name="correct_${questionCount}" value="2" ${template.correct === 'C' ? 'checked' : ''} required>
+                        <button type="button" class="btn-remove-option" onclick="removeOption(${questionCount}, 2)">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="option-row">
+                        <label>Option D:</label>
+                        <input type="text" class="option-input" placeholder="" name="question_${questionCount}_option_3" value="${template.options[3] || ''}" required>
+                        <span class="correct-label">Correct Answer:</span>
+                        <input type="radio" name="correct_${questionCount}" value="3" ${template.correct === 'D' ? 'checked' : ''} required>
+                        <button type="button" class="btn-remove-option" onclick="removeOption(${questionCount}, 3)">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-success add-option-btn" onclick="addOption(${questionCount})">
+                    <i class="fas fa-plus"></i> Add Option
+                </button>
+            </div>
+        `;
+    } else if (template.type === 'matching') {
+        questionHTML += `
+            <div class="form-group">
+                <label><strong>Left Items (Rows):</strong></label>
+                <div id="matching-rows-${questionCount}">
+        `;
+        
+        template.leftItems.forEach((item, index) => {
+            questionHTML += `
+                <div class="input-group">
+                    <label for="left_item_${index + 1}_${questionCount}">Row ${index + 1}:</label>
+                    <input type="text" id="left_item_${index + 1}_${questionCount}" name="question_${questionCount}_left_items[]" placeholder="Row ${index + 1}" oninput="updateMatchingMatches(${questionCount})" value="${item}" required>
+                    <button type="button" class="remove-option" onclick="removeMatchingRow(${questionCount}, ${index})">×</button>
+                </div>
+            `;
+        });
+        
+        questionHTML += `
+                </div>
+                <button type="button" class="add-option" onclick="addMatchingRow(${questionCount})">
+                    <i class="fas fa-plus"></i> Add Row
+                </button>
+            </div>
+            
+            <div class="form-group">
+                <label><strong>Right Items (Columns):</strong></label>
+                <div id="matching-columns-${questionCount}">
+        `;
+        
+        template.rightItems.forEach((item, index) => {
+            questionHTML += `
+                <div class="input-group">
+                    <label for="right_item_${index + 1}_${questionCount}">Column ${index + 1}:</label>
+                    <input type="text" id="right_item_${index + 1}_${questionCount}" name="question_${questionCount}_right_items[]" placeholder="Column ${index + 1}" oninput="updateMatchingMatches(${questionCount})" value="${item}" required>
+                    <button type="button" class="remove-option" onclick="removeMatchingColumn(${questionCount}, ${index})">×</button>
+                </div>
+            `;
+        });
+        
+        questionHTML += `
+                </div>
+                <button type="button" class="add-option" onclick="addMatchingColumn(${questionCount})">
+                    <i class="fas fa-plus"></i> Add Column
+                </button>
+            </div>
+            
+            <div class="form-group">
+                <label><strong>Correct Matches:</strong></label>
+                <div id="matching-matches-${questionCount}">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+        `;
+    } else if (template.type === 'essay') {
+        questionHTML += `
+            <div class="form-group">
+                <label>Essay Question Details:</label>
+                <p style="color: #666; font-size: 14px; margin-bottom: 10px;">Essay questions will be manually graded by the teacher.</p>
+                <label>Rubric (required):</label>
+                <textarea placeholder="e.g., Thesis (2), Evidence (3), Organization (2), Grammar (3)" name="question_${questionCount}_rubric" required>${template.rubric || ''}</textarea>
+                <small style="color: #666;">Describe scoring criteria or paste a rubric. Students will see this rubric.</small>
+            </div>
+        `;
+    }
+    
+    questionHTML += `
+        </div>
+    `;
+    
+    questionDiv.innerHTML = questionHTML;
+    container.appendChild(questionDiv);
+    
+    // Update question numbering
+    updateQuestionNumbers();
+    
+    // For matching questions, update matches after a delay
+    if (template.type === 'matching') {
+        setTimeout(() => {
+            updateMatchingMatches(questionCount);
+        }, 200);
+    }
+}
+
+async function generateAIQuestions() {
+    const generateBtn = document.getElementById('aiGenerateBtn');
+    const originalText = generateBtn.innerHTML;
+    
+    // Show loading state
+    generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+    generateBtn.disabled = true;
+    
+    try {
+        // Get form data
+        const materialContent = document.querySelector('.material-content').textContent;
+        const materialTitle = document.querySelector('.material-title').textContent;
+        const numQuestions = document.getElementById('aiNumQuestions').value;
+        const difficulty = document.getElementById('aiDifficulty').value;
+        
+        // Get selected question types
+        const questionTypes = [];
+        if (document.getElementById('aiTypeMcq').checked) questionTypes.push('mcq');
+        if (document.getElementById('aiTypeMatching').checked) questionTypes.push('matching');
+        if (document.getElementById('aiTypeEssay').checked) questionTypes.push('essay');
+        
+        if (questionTypes.length === 0) {
+            alert('Please select at least one question type');
+            return;
+        }
+        
+        // Determine which AI provider to use
+        const aiProvider = '<?= $aiProvider ?>';
+        const apiEndpoint = aiProvider === 'ollama' ? 'ollama_question_generator.php' : 'ai_question_generator.php';
+        
+        // Call AI API
+        const response = await fetch(apiEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                material_content: materialContent,
+                material_title: materialTitle,
+                num_questions: parseInt(numQuestions),
+                question_types: questionTypes,
+                difficulty: difficulty
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Clear existing questions
+            document.getElementById('questions-container').innerHTML = '';
+            questionCount = 0;
+            
+            // Add generated questions
+            data.questions.forEach(question => {
+                addGeneratedQuestion(question);
+            });
+            
+            // Close modal
+            closeAIGeneratorModal();
+            
+            // Show success message
+            alert(`Successfully generated ${data.questions.length} questions! You can now review and edit them before saving.`);
+            
+        } else {
+            alert('Error generating questions: ' + (data.error || 'Unknown error'));
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error generating questions: ' + error.message);
+    } finally {
+        generateBtn.innerHTML = originalText;
+        generateBtn.disabled = false;
+    }
+}
+
+function addGeneratedQuestion(questionData) {
+    questionCount++;
+    const container = document.getElementById('questions-container');
+    
+    const questionDiv = document.createElement('div');
+    questionDiv.className = 'question-item';
+    questionDiv.id = `question-${questionCount}`;
+    
+    // Create question HTML based on type
+    let questionHTML = `
+        <div class="question-header">
+            <span class="question-number">Question ${questionCount}</span>
+            <span class="question-type">${questionData.type.toUpperCase()}</span>
+            <button type="button" class="btn-remove" onclick="removeQuestion(${questionCount})">
+                <i class="fas fa-trash"></i> Remove
+            </button>
+        </div>
+        
+        <div class="form-group">
+            <label>Question Type:</label>
+            <select class="question-type-select" onchange="handleQuestionTypeChange(this, ${questionCount})">
+                <option value="mcq" ${questionData.type === 'mcq' ? 'selected' : ''}>Multiple Choice</option>
+                <option value="matching" ${questionData.type === 'matching' ? 'selected' : ''}>Matching</option>
+                <option value="essay" ${questionData.type === 'essay' ? 'selected' : ''}>Essay</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Question Text:</label>
+            <textarea class="question-text" placeholder="Enter your question here..." name="question_${questionCount}_text" required>${questionData.question_text}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label>Points:</label>
+            <input type="number" class="question-points" name="question_${questionCount}_points" value="${questionData.points}" min="1" required>
+        </div>
+        
+        <div id="question-${questionCount}-options" class="question-options">
+    `;
+    
+    // Add type-specific options
+    if (questionData.type === 'mcq') {
+        questionHTML += `
+            <div class="form-group">
+                <label><strong>Multiple Choice Options</strong></label>
+                <div class="options-container">
+                    <div class="option-row">
+                        <label>Option A:</label>
+                        <input type="text" class="option-input" placeholder="" name="question_${questionCount}_option_0" value="${questionData.choice_a || ''}" required>
+                        <span class="correct-label">Correct Answer:</span>
+                        <input type="radio" name="correct_${questionCount}" value="0" ${questionData.correct_answer === 'A' ? 'checked' : ''} required>
+                        <button type="button" class="btn-remove-option" onclick="removeOption(${questionCount}, 0)">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="option-row">
+                        <label>Option B:</label>
+                        <input type="text" class="option-input" placeholder="" name="question_${questionCount}_option_1" value="${questionData.choice_b || ''}" required>
+                        <span class="correct-label">Correct Answer:</span>
+                        <input type="radio" name="correct_${questionCount}" value="1" ${questionData.correct_answer === 'B' ? 'checked' : ''} required>
+                        <button type="button" class="btn-remove-option" onclick="removeOption(${questionCount}, 1)">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="option-row">
+                        <label>Option C:</label>
+                        <input type="text" class="option-input" placeholder="" name="question_${questionCount}_option_2" value="${questionData.choice_c || ''}" required>
+                        <span class="correct-label">Correct Answer:</span>
+                        <input type="radio" name="correct_${questionCount}" value="2" ${questionData.correct_answer === 'C' ? 'checked' : ''} required>
+                        <button type="button" class="btn-remove-option" onclick="removeOption(${questionCount}, 2)">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="option-row">
+                        <label>Option D:</label>
+                        <input type="text" class="option-input" placeholder="" name="question_${questionCount}_option_3" value="${questionData.choice_d || ''}" required>
+                        <span class="correct-label">Correct Answer:</span>
+                        <input type="radio" name="correct_${questionCount}" value="3" ${questionData.correct_answer === 'D' ? 'checked' : ''} required>
+                        <button type="button" class="btn-remove-option" onclick="removeOption(${questionCount}, 3)">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-success add-option-btn" onclick="addOption(${questionCount})">
+                    <i class="fas fa-plus"></i> Add Option
+                </button>
+            </div>
+        `;
+    } else if (questionData.type === 'matching') {
+        questionHTML += `
+            <div class="form-group">
+                <label><strong>Left Items (Rows):</strong></label>
+                <div id="matching-rows-${questionCount}">
+        `;
+        
+        questionData.left_items.forEach((item, index) => {
+            questionHTML += `
+                <div class="input-group">
+                    <label for="left_item_${index + 1}_${questionCount}">Row ${index + 1}:</label>
+                    <input type="text" id="left_item_${index + 1}_${questionCount}" name="question_${questionCount}_left_items[]" placeholder="Row ${index + 1}" oninput="updateMatchingMatches(${questionCount})" value="${item}" required>
+                    <button type="button" class="remove-option" onclick="removeMatchingRow(${questionCount}, ${index})">×</button>
+                </div>
+            `;
+        });
+        
+        questionHTML += `
+                </div>
+                <button type="button" class="add-option" onclick="addMatchingRow(${questionCount})">
+                    <i class="fas fa-plus"></i> Add Row
+                </button>
+            </div>
+            
+            <div class="form-group">
+                <label><strong>Right Items (Columns):</strong></label>
+                <div id="matching-columns-${questionCount}">
+        `;
+        
+        questionData.right_items.forEach((item, index) => {
+            questionHTML += `
+                <div class="input-group">
+                    <label for="right_item_${index + 1}_${questionCount}">Column ${index + 1}:</label>
+                    <input type="text" id="right_item_${index + 1}_${questionCount}" name="question_${questionCount}_right_items[]" placeholder="Column ${index + 1}" oninput="updateMatchingMatches(${questionCount})" value="${item}" required>
+                    <button type="button" class="remove-option" onclick="removeMatchingColumn(${questionCount}, ${index})">×</button>
+                </div>
+            `;
+        });
+        
+        questionHTML += `
+                </div>
+                <button type="button" class="add-option" onclick="addMatchingColumn(${questionCount})">
+                    <i class="fas fa-plus"></i> Add Column
+                </button>
+            </div>
+            
+            <div class="form-group">
+                <label><strong>Correct Matches:</strong></label>
+                <div id="matching-matches-${questionCount}">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+        `;
+    } else if (questionData.type === 'essay') {
+        questionHTML += `
+            <div class="form-group">
+                <label>Essay Question Details:</label>
+                <p style="color: #666; font-size: 14px; margin-bottom: 10px;">Essay questions will be manually graded by the teacher.</p>
+                <label>Rubric (required):</label>
+                <textarea placeholder="e.g., Thesis (2), Evidence (3), Organization (2), Grammar (3)" name="question_${questionCount}_rubric" required>${questionData.rubric || ''}</textarea>
+                <small style="color: #666;">Describe scoring criteria or paste a rubric. Students will see this rubric.</small>
+            </div>
+        `;
+    }
+    
+    questionHTML += `
+        </div>
+    `;
+    
+    questionDiv.innerHTML = questionHTML;
+    container.appendChild(questionDiv);
+    
+    // Update question numbering
+    updateQuestionNumbers();
+    
+    // For matching questions, update matches after a delay
+    if (questionData.type === 'matching') {
+        setTimeout(() => {
+            updateMatchingMatches(questionCount);
+        }, 200);
+    }
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('aiGeneratorModal');
+    if (event.target === modal) {
+        closeAIGeneratorModal();
+    }
+}
+
+>>>>>>> 2fcad03c27dbe56cf4dba808f3f13a749f478b16
 // Multi-select functionality for sections
 document.addEventListener('DOMContentLoaded', function() {
     // Don't add any questions initially - wait for user to click "Add New Question"
