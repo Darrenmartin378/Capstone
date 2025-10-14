@@ -796,41 +796,6 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
                 <button type="button" class="btn btn-secondary" onclick="addQuestion()" style="margin-right: 10px;">
                     <i class="fas fa-plus"></i> Add New Question
                 </button>
-<<<<<<< HEAD
-=======
-                <?php 
-                $aiAvailable = false;
-                $aiProvider = 'none';
-                
-                // Check OpenAI
-                if (file_exists(__DIR__ . '/config/ai_config.php')) {
-                    require_once __DIR__ . '/config/ai_config.php';
-                    if (isAIEnabled()) {
-                        $aiAvailable = true;
-                        $aiProvider = 'openai';
-                    }
-                }
-                
-                // Check Ollama
-                if (!$aiAvailable && file_exists(__DIR__ . '/config/ollama_config.php')) {
-                    require_once __DIR__ . '/config/ollama_config.php';
-                    $ollamaStatus = checkOllamaStatus();
-                    if ($ollamaStatus['running'] && $ollamaStatus['model_available']) {
-                        $aiAvailable = true;
-                        $aiProvider = 'ollama';
-                    }
-                }
-                ?>
-                
-                <button type="button" class="btn btn-primary" onclick="showQuickQuestionTemplates()" style="margin-right: 10px;">
-                    <i class="fas fa-magic"></i> Quick Templates
-                </button>
-                <?php if ($aiAvailable): ?>
-                <button type="button" class="btn btn-success" onclick="showAIGeneratorModal()" style="margin-right: 10px;">
-                    <i class="fas fa-robot"></i> AI Generate (<?= strtoupper($aiProvider) ?>)
-                </button>
-                <?php endif; ?>
->>>>>>> 2fcad03c27dbe56cf4dba808f3f13a749f478b16
                 <button type="button" class="btn btn-primary" onclick="saveQuestions()" style="font-size: 18px; padding: 15px 30px; margin-top: 20px;">
                     <i class="fas fa-save"></i> Create Questions
                 </button>
@@ -841,75 +806,6 @@ render_teacher_header('teacher_content.php', $_SESSION['teacher_name'] ?? 'Teach
         </form>
     </div>
 </div>
-
-<<<<<<< HEAD
-=======
-<!-- AI Generator Modal -->
-<div id="aiGeneratorModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-    <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 600px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px;">
-            <h2 style="margin: 0; color: #333;"><i class="fas fa-robot"></i> AI Question Generator</h2>
-            <span class="close" onclick="closeAIGeneratorModal()" style="color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
-        </div>
-        
-        <div class="modal-body">
-            <div class="form-group">
-                <label>Number of Questions:</label>
-                <select id="aiNumQuestions" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    <option value="3">3 Questions</option>
-                    <option value="5" selected>5 Questions</option>
-                    <option value="7">7 Questions</option>
-                    <option value="10">10 Questions</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label>Difficulty Level:</label>
-                <select id="aiDifficulty" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    <option value="easy">Easy</option>
-                    <option value="medium" selected>Medium</option>
-                    <option value="hard">Hard</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label>Question Types:</label>
-                <div style="display: flex; gap: 15px; margin-top: 8px;">
-                    <label style="display: flex; align-items: center; gap: 5px;">
-                        <input type="checkbox" id="aiTypeMcq" checked style="margin: 0;">
-                        <span>Multiple Choice</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 5px;">
-                        <input type="checkbox" id="aiTypeMatching" checked style="margin: 0;">
-                        <span>Matching</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 5px;">
-                        <input type="checkbox" id="aiTypeEssay" checked style="margin: 0;">
-                        <span>Essay</span>
-                    </label>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label>Material Preview:</label>
-                <div id="aiMaterialPreview" style="max-height: 200px; overflow-y: auto; padding: 10px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; line-height: 1.4;">
-                    <!-- Material content will be loaded here -->
-                </div>
-            </div>
-        </div>
-        
-        <div class="modal-footer" style="margin-top: 20px; text-align: right; border-top: 1px solid #eee; padding-top: 15px;">
-            <button type="button" class="btn btn-secondary" onclick="closeAIGeneratorModal()" style="margin-right: 10px;">
-                <i class="fas fa-times"></i> Cancel
-            </button>
-            <button type="button" class="btn btn-success" onclick="generateAIQuestions()" id="aiGenerateBtn">
-                <i class="fas fa-robot"></i> Generate Questions
-            </button>
-        </div>
-    </div>
-</div>
-
->>>>>>> 2fcad03c27dbe56cf4dba808f3f13a749f478b16
 <script>
 let questionCount = 0;
 
@@ -1737,64 +1633,7 @@ function updateCorrectMatchOptions(questionNum) {
     });
 }
 
-<<<<<<< HEAD
-=======
-// AI Generation Functions
-function showAIGeneratorModal() {
-    const modal = document.getElementById('aiGeneratorModal');
-    const materialContentElement = document.querySelector('.material-content');
-    const materialTitle = document.querySelector('.material-title').textContent;
-    
-    // Get material content - handle different content types
-    let materialContent = '';
-    
-    if (materialContentElement) {
-        // Check if it's a PDF iframe
-        const iframe = materialContentElement.querySelector('iframe');
-        if (iframe) {
-            // For PDF files, we need to provide educational content based on the title
-            materialContent = generateEducationalContentFromTitle(materialTitle);
-        } else {
-            // For text content
-            materialContent = materialContentElement.textContent || materialContentElement.innerText || '';
-        }
-    }
-    
-    // If content is still empty or too short, generate educational content
-    if (!materialContent || materialContent.trim().length < 100) {
-        materialContent = generateEducationalContentFromTitle(materialTitle);
-    }
-    
-    // Load material preview
-    const preview = document.getElementById('aiMaterialPreview');
-    const truncatedContent = materialContent.length > 500 ? 
-        materialContent.substring(0, 500) + '...' : materialContent;
-    preview.textContent = truncatedContent;
-    
-    modal.style.display = 'block';
-}
 
-function generateEducationalContentFromTitle(title) {
-    // Generate educational content based on the material title
-    const lowerTitle = title.toLowerCase();
-    
-    if (lowerTitle.includes('english') || lowerTitle.includes('language')) {
-        return "This English language learning material contains reading comprehension exercises, grammar lessons, and writing activities. The document includes literary texts, vocabulary exercises, and language skills development activities. The material covers topics such as reading comprehension, grammar rules, vocabulary building, creative writing, and literary analysis. Students will learn about different text types, story elements, character development, and how to analyze and interpret various forms of literature. The content is designed to enhance reading, writing, and communication skills for Grade 6 students.";
-    } else if (lowerTitle.includes('math') || lowerTitle.includes('mathematics')) {
-        return "This mathematics learning material contains problem-solving exercises, mathematical concepts, and practice activities. The document includes step-by-step solutions, examples, and mathematical reasoning exercises. The material covers various mathematical topics including arithmetic operations, fractions, decimals, geometry, measurement, and problem-solving strategies. Students will learn about number systems, basic operations, geometric shapes, measurement units, and how to apply mathematical concepts to real-world situations. The content is designed to develop mathematical thinking and problem-solving skills for Grade 6 students.";
-    } else if (lowerTitle.includes('science')) {
-        return "This science learning material contains scientific concepts, experiments, and educational activities. The document includes information about natural phenomena, scientific methods, and hands-on experiments. The material covers topics such as the scientific method, basic physics concepts, chemistry fundamentals, biology basics, earth science, and environmental studies. Students will learn about observation, hypothesis formation, experimentation, data collection, and scientific reasoning. The content is designed to develop scientific thinking and inquiry skills for Grade 6 students.";
-    } else if (lowerTitle.includes('quarter') || lowerTitle.includes('module')) {
-        return "This is a comprehensive educational module containing structured learning materials. The document includes lessons, activities, and educational resources designed for student learning. The material covers key concepts and learning objectives with examples and exercises. Students will engage with various educational activities including reading comprehension, problem-solving tasks, creative exercises, and assessment activities. The content is organized to provide a systematic learning experience that builds upon previous knowledge and prepares students for advanced concepts. The material is designed to support Grade 6 students in their academic development.";
-    } else {
-        return "This educational material contains structured learning content covering various academic subjects and topics suitable for Grade 6 students. The document includes lessons, activities, and educational resources designed to enhance student learning. The material covers key concepts, learning objectives, examples, and exercises that help students develop their knowledge and skills. Students will engage with reading materials, problem-solving activities, creative tasks, and assessment exercises. The content is designed to be age-appropriate and aligned with Grade 6 curriculum standards, providing a comprehensive learning experience that supports academic growth and development.";
-    }
-}
-
-function closeAIGeneratorModal() {
-    const modal = document.getElementById('aiGeneratorModal');
-    modal.style.display = 'none';
-}
 
 function showQuickQuestionTemplates() {
     const materialTitle = document.querySelector('.material-title').textContent;
@@ -2605,81 +2444,6 @@ function addTemplateQuestion(template) {
     }
 }
 
-async function generateAIQuestions() {
-    const generateBtn = document.getElementById('aiGenerateBtn');
-    const originalText = generateBtn.innerHTML;
-    
-    // Show loading state
-    generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
-    generateBtn.disabled = true;
-    
-    try {
-        // Get form data
-        const materialContent = document.querySelector('.material-content').textContent;
-        const materialTitle = document.querySelector('.material-title').textContent;
-        const numQuestions = document.getElementById('aiNumQuestions').value;
-        const difficulty = document.getElementById('aiDifficulty').value;
-        
-        // Get selected question types
-        const questionTypes = [];
-        if (document.getElementById('aiTypeMcq').checked) questionTypes.push('mcq');
-        if (document.getElementById('aiTypeMatching').checked) questionTypes.push('matching');
-        if (document.getElementById('aiTypeEssay').checked) questionTypes.push('essay');
-        
-        if (questionTypes.length === 0) {
-            alert('Please select at least one question type');
-            return;
-        }
-        
-        // Determine which AI provider to use
-        const aiProvider = '<?= $aiProvider ?>';
-        const apiEndpoint = aiProvider === 'ollama' ? 'ollama_question_generator.php' : 'ai_question_generator.php';
-        
-        // Call AI API
-        const response = await fetch(apiEndpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                material_content: materialContent,
-                material_title: materialTitle,
-                num_questions: parseInt(numQuestions),
-                question_types: questionTypes,
-                difficulty: difficulty
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            // Clear existing questions
-            document.getElementById('questions-container').innerHTML = '';
-            questionCount = 0;
-            
-            // Add generated questions
-            data.questions.forEach(question => {
-                addGeneratedQuestion(question);
-            });
-            
-            // Close modal
-            closeAIGeneratorModal();
-            
-            // Show success message
-            alert(`Successfully generated ${data.questions.length} questions! You can now review and edit them before saving.`);
-            
-        } else {
-            alert('Error generating questions: ' + (data.error || 'Unknown error'));
-        }
-        
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Error generating questions: ' + error.message);
-    } finally {
-        generateBtn.innerHTML = originalText;
-        generateBtn.disabled = false;
-    }
-}
 
 function addGeneratedQuestion(questionData) {
     questionCount++;
@@ -2852,15 +2616,6 @@ function addGeneratedQuestion(questionData) {
     }
 }
 
-// Close modal when clicking outside
-window.onclick = function(event) {
-    const modal = document.getElementById('aiGeneratorModal');
-    if (event.target === modal) {
-        closeAIGeneratorModal();
-    }
-}
-
->>>>>>> 2fcad03c27dbe56cf4dba808f3f13a749f478b16
 // Multi-select functionality for sections
 document.addEventListener('DOMContentLoaded', function() {
     // Don't add any questions initially - wait for user to click "Add New Question"
