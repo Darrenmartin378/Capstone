@@ -24,6 +24,124 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     try {
         switch ($_POST['action']) {
+            case 'get_question_sets':
+                try {
+                    $teacherId = (int)($_SESSION['teacher_id'] ?? 0);
+                    if ($teacherId <= 0) {
+                        echo json_encode(['success' => false, 'error' => 'Invalid teacher']);
+                        exit;
+                    }
+                    
+                    // Check if is_archived column exists, if not, add it
+                    try {
+                        $conn->query("ALTER TABLE question_sets ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0");
+                    } catch (Exception $e) {
+                        // Column already exists, ignore
+                    }
+                    
+                    // Get question sets with question counts
+                    $stmt = $conn->prepare("
+                        SELECT qs.id, qs.set_title, qs.created_at,
+                               (SELECT COUNT(*) FROM mcq_questions WHERE set_id = qs.id) +
+                               (SELECT COUNT(*) FROM matching_questions WHERE set_id = qs.id) +
+                               (SELECT COUNT(*) FROM essay_questions WHERE set_id = qs.id) as question_count
+                        FROM question_sets qs
+                        WHERE qs.teacher_id = ? AND (qs.is_archived = 0 OR qs.is_archived IS NULL)
+                        ORDER BY qs.created_at DESC
+                    ");
+                    $stmt->bind_param('i', $teacherId);
+                    $stmt->execute();
+                    $questionSets = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                    
+                    echo json_encode(['success' => true, 'question_sets' => $questionSets]);
+                    exit;
+                } catch (Exception $e) {
+                    error_log('Error getting question sets: ' . $e->getMessage());
+                    echo json_encode(['success' => false, 'error' => 'Failed to retrieve question sets']);
+                    exit;
+                }
+
+            case 'get_questions_by_set':
+                try {
+                    $teacherId = (int)($_SESSION['teacher_id'] ?? 0);
+                    $setId = (int)($_POST['set_id'] ?? 0);
+                    
+                    if ($teacherId <= 0 || $setId <= 0) {
+                        echo json_encode(['success' => false, 'error' => 'Invalid parameters']);
+                        exit;
+                    }
+                    
+                    // Verify teacher owns this set
+                    $stmt = $conn->prepare("SELECT id, set_title FROM question_sets WHERE id = ? AND teacher_id = ? AND (is_archived = 0 OR is_archived IS NULL)");
+                    $stmt->bind_param('ii', $setId, $teacherId);
+                    $stmt->execute();
+                    $setInfo = $stmt->get_result()->fetch_assoc();
+                    
+                    if (!$setInfo) {
+                        echo json_encode(['success' => false, 'error' => 'Question set not found']);
+                        exit;
+                    }
+                    
+                    $questions = [];
+                    
+                    // Get MCQ questions
+                    $stmt = $conn->prepare("
+                        SELECT question_id as id, 'multiple_choice' as question_type, question_text, 
+                               choice_a, choice_b, choice_c, choice_d, 
+                               correct_answer as answer, points, order_index, created_at
+                        FROM mcq_questions 
+                        WHERE set_id = ?
+                        ORDER BY order_index, question_id
+                    ");
+                    $stmt->bind_param('i', $setId);
+                    $stmt->execute();
+                    $mcqQuestions = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                    
+                    // Get Matching questions
+                    $stmt = $conn->prepare("
+                        SELECT question_id as id, 'matching' as question_type, question_text,
+                               left_items, right_items, correct_pairs as answer,
+                               points, order_index, created_at
+                        FROM matching_questions 
+                        WHERE set_id = ?
+                        ORDER BY order_index, question_id
+                    ");
+                    $stmt->bind_param('i', $setId);
+                    $stmt->execute();
+                    $matchingQuestions = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                    
+                    // Get Essay questions
+                    $stmt = $conn->prepare("
+                        SELECT question_id as id, 'essay' as question_type, question_text,
+                               points, order_index, created_at
+                        FROM essay_questions 
+                        WHERE set_id = ?
+                        ORDER BY order_index, question_id
+                    ");
+                    $stmt->bind_param('i', $setId);
+                    $stmt->execute();
+                    $essayQuestions = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                    
+                    // Combine all questions
+                    $questions = array_merge($mcqQuestions, $matchingQuestions, $essayQuestions);
+                    
+                    // Sort by order_index
+                    usort($questions, function($a, $b) {
+                        return ($a['order_index'] ?? 0) - ($b['order_index'] ?? 0);
+                    });
+                    
+                    echo json_encode([
+                        'success' => true, 
+                        'questions' => $questions,
+                        'set_info' => $setInfo
+                    ]);
+                    exit;
+                } catch (Exception $e) {
+                    error_log('Error getting questions by set: ' . $e->getMessage());
+                    echo json_encode(['success' => false, 'error' => 'Failed to retrieve questions']);
+                    exit;
+                }
+
             case 'ai_recommend_questions':
                 try {
                     error_log('AI Recommendation Request - POST data: ' . print_r($_POST, true));
@@ -2258,6 +2376,9 @@ render_teacher_header('clean_question_creator.php', $teacherName, $pageTitle);
                     <button type="button" class="btn btn-secondary" onclick="addNewQuestion()" style="margin-right: 10px;">
                     <i class="fas fa-plus"></i> Add New Question
                 </button>
+                    <button type="button" class="btn btn-secondary" onclick="showImportModal()" style="margin-right: 10px; background: #8b5cf6; color: white;">
+                        <i class="fas fa-download"></i> Import from Question Bank
+                </button>
                     <button type="submit" class="btn btn-primary" style="font-size: 18px; padding: 15px 30px; margin-top: 20px;">
                         <i class="fas fa-save"></i> <?php echo $isEditMode ? 'Save Changes' : 'Create Questions'; ?>
                     </button>
@@ -3225,18 +3346,22 @@ render_teacher_header('clean_question_creator.php', $teacherName, $pageTitle);
         }
         
         function updateMatchingMatches(questionIndex = 0) {
+            console.log('updateMatchingMatches called for questionIndex:', questionIndex);
             
             const rows = document.querySelectorAll(`input[name="questions[${questionIndex}][left_items][]"]`);
             const columns = document.querySelectorAll(`input[name="questions[${questionIndex}][right_items][]"]`);
             const container = document.getElementById(`matching-matches_${questionIndex}`);
             const pointsField = document.getElementById(`points_${questionIndex}`);
             
+            console.log('Found rows:', rows.length, 'columns:', columns.length, 'container:', container);
             
             if (!container) {
+                console.log('No container found for questionIndex:', questionIndex);
                 return;
             }
             
             container.innerHTML = '';
+            console.log('Cleared container, now creating text fields...');
             
             // Count valid rows (non-empty)
             const validRows = Array.from(rows).filter(row => row.value.trim());
@@ -3253,6 +3378,7 @@ render_teacher_header('clean_question_creator.php', $teacherName, $pageTitle);
             }
             
             rows.forEach((row, index) => {
+                console.log(`Creating dropdown for row ${index}:`, row.value);
                 
                 // Create dropdown for ALL rows, not just non-empty ones
                     const matchItem = document.createElement('div');
@@ -3267,8 +3393,10 @@ render_teacher_header('clean_question_creator.php', $teacherName, $pageTitle);
                         </select>
                     `;
                     container.appendChild(matchItem);
+                    console.log(`Added dropdown for row ${index}`);
             });
         }
+        
         
         function removeMatchingRow(button, questionIndex) {
             const rowContainer = document.getElementById(`matching-rows_${questionIndex}`);
@@ -4679,6 +4807,789 @@ render_teacher_header('clean_question_creator.php', $teacherName, $pageTitle);
                 filterBySection();
             }
         });
+
+        // Import from Question Bank functionality
+        function showImportModal() {
+            console.log('Opening import modal...');
+            // Create modal HTML with improved styling
+            const modalHTML = `
+                <div id="importModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+                    <div style="background: white; width: 95%; max-width: 900px; max-height: 85vh; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); border: 1px solid #e5e7eb;">
+                        <!-- Header -->
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 24px; color: white;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <h3 id="importModalTitle" style="margin: 0; font-size: 20px; font-weight: 600;">Import Questions from Question Bank</h3>
+                                    <p id="importModalSubtitle" style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">Select questions to add to your current assessment</p>
+                                </div>
+                                <button onclick="closeImportModal()" style="background: rgba(255,255,255,0.2); border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; color: white; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">&times;</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Content -->
+                        <div style="padding: 24px; max-height: 55vh; overflow-y: auto; background: #fafbfc;">
+                            <div id="importLoading" style="text-align: center; padding: 60px 20px;">
+                                <div style="background: white; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                                    <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #667eea;"></i>
+                                </div>
+                                <p style="margin: 0; color: #6b7280; font-size: 16px; font-weight: 500;">Loading question sets...</p>
+                            </div>
+                            <div id="importContent" style="display: none;">
+                                <div id="importSetsList" style="display: block;"></div>
+                                <div id="importQuestionsList" style="display: none;"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Footer -->
+                        <div style="padding: 20px 24px; border-top: 1px solid #e5e7eb; background: white; display: flex; justify-content: space-between; align-items: center;">
+                            <button onclick="goBackToSets()" id="backBtn" style="background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500; display: none; transition: all 0.2s ease;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">
+                                <i class="fas fa-arrow-left" style="margin-right: 8px;"></i>Back to Sets
+                            </button>
+                            <div style="display: flex; gap: 12px; margin-left: auto;">
+                                <button onclick="closeImportModal()" style="background: #6b7280; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s ease;" onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#6b7280'">Cancel</button>
+                                <button onclick="importSelectedQuestions()" id="importBtn" style="background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500; opacity: 0.5; pointer-events: none; transition: all 0.2s ease;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                    <i class="fas fa-download" style="margin-right: 8px;"></i>Import Selected
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            
+            // Load question sets first
+            loadQuestionSets();
+        }
+
+        function closeImportModal() {
+            const modal = document.getElementById('importModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        function loadQuestionSets() {
+            const formData = new FormData();
+            formData.append('action', 'get_question_sets');
+            
+            fetch('', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Question sets data:', data);
+                const loading = document.getElementById('importLoading');
+                const content = document.getElementById('importContent');
+                const setsList = document.getElementById('importSetsList');
+                
+                if (data.success && data.question_sets.length > 0) {
+                    loading.style.display = 'none';
+                    content.style.display = 'block';
+                    
+                    let html = `
+                        <div style="margin-bottom: 24px;">
+                            <h4 style="margin: 0 0 8px 0; color: #1f2937; font-size: 18px; font-weight: 600;">Select a Question Set</h4>
+                            <p style="margin: 0; color: #6b7280; font-size: 14px;">Choose a question set to import questions from</p>
+                        </div>
+                    `;
+                    
+                    data.question_sets.forEach((set) => {
+                        html += `
+                            <div style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 16px; background: white; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.04);" 
+                                 onmouseover="this.style.borderColor='#667eea'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(102, 126, 234, 0.15)'" 
+                                 onmouseout="this.style.borderColor='#e5e7eb'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.04)'"
+                                 onclick="loadQuestionsFromSet(${set.id}, '${set.set_title.replace(/'/g, "\\'")}')">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); width: 8px; height: 8px; border-radius: 50%; margin-right: 12px;"></div>
+                                            <div style="font-weight: 600; color: #1f2937; font-size: 18px;">${set.set_title}</div>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 16px;">
+                                            <div style="background: #f0f9ff; color: #0369a1; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 500;">
+                                                <i class="fas fa-question-circle" style="margin-right: 6px;"></i>${set.question_count} question${set.question_count !== 1 ? 's' : ''}
+                                            </div>
+                                            <div style="color: #6b7280; font-size: 13px;">
+                                                <i class="fas fa-calendar-alt" style="margin-right: 6px;"></i>${new Date(set.created_at).toLocaleDateString()}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style="background: #f8fafc; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
+                                        <i class="fas fa-chevron-right" style="color: #667eea; font-size: 16px;"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    setsList.innerHTML = html;
+                } else {
+                    loading.style.display = 'none';
+                    content.style.display = 'block';
+                    setsList.innerHTML = `
+                        <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px; border: 2px dashed #e5e7eb;">
+                            <div style="background: #f8fafc; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; border: 2px solid #e5e7eb;">
+                                <i class="fas fa-inbox" style="font-size: 32px; color: #9ca3af;"></i>
+                            </div>
+                            <h4 style="margin: 0 0 8px 0; color: #374151; font-size: 18px; font-weight: 600;">No Question Sets Found</h4>
+                            <p style="margin: 0; font-size: 14px; color: #6b7280; max-width: 300px; margin: 0 auto;">You don't have any question sets yet. Create some questions first to use this feature.</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading question sets:', error);
+                const loading = document.getElementById('importLoading');
+                const content = document.getElementById('importContent');
+                const setsList = document.getElementById('importSetsList');
+                
+                loading.style.display = 'none';
+                content.style.display = 'block';
+                setsList.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px; border: 2px solid #fecaca;">
+                        <div style="background: #fef2f2; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; border: 2px solid #fecaca;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 32px; color: #dc2626;"></i>
+                        </div>
+                        <h4 style="margin: 0 0 8px 0; color: #dc2626; font-size: 18px; font-weight: 600;">Error Loading Question Sets</h4>
+                        <p style="margin: 0; font-size: 14px; color: #6b7280; max-width: 300px; margin: 0 auto;">Failed to load question sets. Please try again.</p>
+                    </div>
+                `;
+            });
+        }
+
+        function loadQuestionsFromSet(setId, setTitle) {
+            // Show loading
+            const setsList = document.getElementById('importSetsList');
+            const questionsList = document.getElementById('importQuestionsList');
+            const backBtn = document.getElementById('backBtn');
+            const modalTitle = document.getElementById('importModalTitle');
+            const modalSubtitle = document.getElementById('importModalSubtitle');
+            
+            setsList.style.display = 'none';
+            questionsList.style.display = 'block';
+            backBtn.style.display = 'inline-block';
+            modalTitle.textContent = `Import from: ${setTitle}`;
+            modalSubtitle.textContent = 'Select questions to add to your current assessment';
+            
+            // Show loading in questions area
+            questionsList.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #3b82f6;"></i>
+                    <p style="margin-top: 10px; color: #6b7280;">Loading questions...</p>
+                </div>
+            `;
+            
+            const formData = new FormData();
+            formData.append('action', 'get_questions_by_set');
+            formData.append('set_id', setId);
+            
+            fetch('', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Questions data:', data);
+                if (data.success && data.questions.length > 0) {
+                    // Store question data globally for import
+                    window.importQuestionData = {};
+                    
+                    let html = `
+                        <div style="margin-bottom: 24px;">
+                            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); width: 6px; height: 6px; border-radius: 50%; margin-right: 12px;"></div>
+                                <h4 style="margin: 0; color: #1f2937; font-size: 18px; font-weight: 600;">Questions from: ${data.set_info.set_title}</h4>
+                            </div>
+                            <p style="margin: 0; color: #6b7280; font-size: 14px;">Select the questions you want to import</p>
+                        </div>
+                    `;
+                    
+                    data.questions.forEach((question, index) => {
+                        const questionType = question.question_type || 'multiple_choice';
+                        const typeLabel = questionType === 'multiple_choice' ? 'MCQ' : 
+                                        questionType === 'matching' ? 'Matching' : 'Essay';
+                        
+                        // Get type-specific colors
+                        let typeColor = '#3b82f6';
+                        let typeBgColor = '#eff6ff';
+                        if (questionType === 'matching') {
+                            typeColor = '#8b5cf6';
+                            typeBgColor = '#f3e8ff';
+                        } else if (questionType === 'essay') {
+                            typeColor = '#10b981';
+                            typeBgColor = '#ecfdf5';
+                        }
+                        
+                        // Store the full question data
+                        const questionData = {
+                            id: question.id,
+                            type: questionType === 'multiple_choice' ? 'mcq' : 
+                                  questionType === 'matching' ? 'matching' : 'essay',
+                            question_text: question.question_text,
+                            set_title: data.set_info.set_title,
+                            points: question.points || 1,
+                            // Store additional data based on type
+                            ...(questionType === 'multiple_choice' && {
+                                choice_a: question.choice_a,
+                                choice_b: question.choice_b,
+                                choice_c: question.choice_c,
+                                choice_d: question.choice_d,
+                                correct_answer: question.answer
+                            }),
+                            ...(questionType === 'matching' && {
+                                left_items: question.left_items,
+                                right_items: question.right_items,
+                                answer: question.answer
+                            })
+                        };
+                        
+                        window.importQuestionData[question.id] = questionData;
+                        console.log('Stored question data for ID', question.id, ':', questionData);
+                        
+                        html += `
+                            <div style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 16px; background: white; transition: all 0.2s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                                <label style="display: flex; align-items: flex-start; gap: 16px; cursor: pointer;">
+                                    <div style="margin-top: 2px;">
+                                        <input type="checkbox" class="import-question-checkbox" value="${question.id}" onchange="updateImportButton()" style="width: 18px; height: 18px; accent-color: #667eea; cursor: pointer;">
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                            <div style="display: flex; align-items: center; gap: 12px;">
+                                                <span style="background: ${typeBgColor}; color: ${typeColor}; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid ${typeColor}20;">
+                                                    ${typeLabel}
+                                                </span>
+                                                <div style="background: #f8fafc; color: #64748b; padding: 4px 10px; border-radius: 16px; font-size: 12px; font-weight: 500;">
+                                                    <i class="fas fa-star" style="margin-right: 4px;"></i>${question.points || 1} pt${(question.points || 1) !== 1 ? 's' : ''}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style="color: #374151; line-height: 1.6; font-size: 15px; background: #fafbfc; padding: 16px; border-radius: 8px; border-left: 4px solid ${typeColor};">${question.question_text.substring(0, 250)}${question.question_text.length > 250 ? '...' : ''}</div>
+                                    </div>
+                                </label>
+                            </div>
+                        `;
+                    });
+                    
+                    questionsList.innerHTML = html;
+                } else {
+                    questionsList.innerHTML = `
+                        <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px; border: 2px dashed #e5e7eb;">
+                            <div style="background: #f8fafc; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; border: 2px solid #e5e7eb;">
+                                <i class="fas fa-question-circle" style="font-size: 32px; color: #9ca3af;"></i>
+                            </div>
+                            <h4 style="margin: 0 0 8px 0; color: #374151; font-size: 18px; font-weight: 600;">No Questions Found</h4>
+                            <p style="margin: 0; font-size: 14px; color: #6b7280; max-width: 300px; margin: 0 auto;">This question set doesn't have any questions yet.</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading questions:', error);
+                questionsList.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px; border: 2px solid #fecaca;">
+                        <div style="background: #fef2f2; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; border: 2px solid #fecaca;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 32px; color: #dc2626;"></i>
+                        </div>
+                        <h4 style="margin: 0 0 8px 0; color: #dc2626; font-size: 18px; font-weight: 600;">Error Loading Questions</h4>
+                        <p style="margin: 0; font-size: 14px; color: #6b7280; max-width: 300px; margin: 0 auto;">Failed to load questions from this set. Please try again.</p>
+                    </div>
+                `;
+            });
+        }
+
+        function goBackToSets() {
+            const setsList = document.getElementById('importSetsList');
+            const questionsList = document.getElementById('importQuestionsList');
+            const backBtn = document.getElementById('backBtn');
+            const modalTitle = document.getElementById('importModalTitle');
+            const modalSubtitle = document.getElementById('importModalSubtitle');
+            const importBtn = document.getElementById('importBtn');
+            
+            setsList.style.display = 'block';
+            questionsList.style.display = 'none';
+            backBtn.style.display = 'none';
+            modalTitle.textContent = 'Import Questions from Question Bank';
+            modalSubtitle.textContent = 'Select questions to add to your current assessment';
+            
+            // Reset import button
+            importBtn.style.opacity = '0.5';
+            importBtn.style.pointerEvents = 'none';
+            importBtn.innerHTML = '<i class="fas fa-download" style="margin-right: 8px;"></i>Import Selected';
+        }
+
+        function updateImportButton() {
+            const checkboxes = document.querySelectorAll('.import-question-checkbox:checked');
+            const importBtn = document.getElementById('importBtn');
+            
+            if (checkboxes.length > 0) {
+                importBtn.style.opacity = '1';
+                importBtn.style.pointerEvents = 'auto';
+                importBtn.innerHTML = `<i class="fas fa-download" style="margin-right: 8px;"></i>Import Selected (${checkboxes.length})`;
+            } else {
+                importBtn.style.opacity = '0.5';
+                importBtn.style.pointerEvents = 'none';
+                importBtn.innerHTML = '<i class="fas fa-download" style="margin-right: 8px;"></i>Import Selected';
+            }
+        }
+
+        function importSelectedQuestions() {
+            try {
+                const checkboxes = document.querySelectorAll('.import-question-checkbox:checked');
+                if (checkboxes.length === 0) {
+                    alert('Please select at least one question to import.');
+                    return;
+                }
+                
+                // Get the question data from the stored data
+                const questions = [];
+                checkboxes.forEach(checkbox => {
+                    const questionData = window.importQuestionData[checkbox.value];
+                    if (questionData) {
+                        console.log('Found question data for import:', questionData);
+                        questions.push(questionData);
+                    } else {
+                        console.warn('Question data not found for ID:', checkbox.value);
+                        console.log('Available question data:', window.importQuestionData);
+                    }
+                });
+                
+                if (questions.length === 0) {
+                    alert('No valid questions found to import.');
+                    return;
+                }
+                
+                // Add questions to the form
+                questions.forEach((question, index) => {
+                    setTimeout(() => {
+                        addImportedQuestion(question);
+                    }, index * 100); // Stagger the imports slightly
+                });
+                
+                // Close modal
+                closeImportModal();
+                
+                // Show success message
+                alert(`Successfully imported ${questions.length} question(s) from question bank!`);
+            } catch (error) {
+                console.error('Error importing questions:', error);
+                alert('Error importing questions. Please try again.');
+            }
+        }
+
+        function addImportedQuestion(questionData) {
+            try {
+                console.log('=== ADDING IMPORTED QUESTION ===');
+                console.log('Question data received:', questionData);
+                console.log('Question type:', questionData.type);
+                
+                // Get the current question count
+                const container = document.getElementById('questions-container');
+                if (!container) {
+                    console.error('Questions container not found');
+                    return;
+                }
+                
+                const existingQuestions = container.querySelectorAll('.question-item');
+                const questionIndex = existingQuestions.length;
+                
+                // Create a new question item
+                const questionHTML = createQuestionHTML(questionIndex);
+                container.insertAdjacentHTML('beforeend', questionHTML);
+                
+                // Wait a bit for DOM to update, then populate the fields
+                setTimeout(() => {
+                    console.log('Populating question data for index:', questionIndex, 'Type:', questionData.type);
+                    
+                    // Set the question text first
+                    const questionTextInput = document.querySelector(`#question_text_${questionIndex}`);
+                    if (questionTextInput) {
+                        questionTextInput.value = questionData.question_text;
+                        console.log('Set question text:', questionData.question_text);
+                    }
+                    
+                    // Set the question type and trigger change event
+                    const typeSelect = document.querySelector(`#type_${questionIndex}`);
+                    if (typeSelect) {
+                        typeSelect.value = questionData.type;
+                        console.log('Set question type to:', questionData.type);
+                        
+                        // Call the function to show the appropriate section
+                        if (typeof showQuestionTypeSection === 'function') {
+                            showQuestionTypeSection(questionIndex);
+                            console.log('Called showQuestionTypeSection for index:', questionIndex);
+                        }
+                        
+                        // Also trigger change event as backup
+                        const changeEvent = new Event('change', { bubbles: true });
+                        typeSelect.dispatchEvent(changeEvent);
+                        
+                        // Wait longer for the type-specific fields to appear
+                        setTimeout(() => {
+                            console.log('Setting type-specific fields for:', questionData.type);
+                            
+                            // Set points
+                            const pointsInput = document.querySelector(`#points_${questionIndex}`);
+                            if (pointsInput) {
+                                pointsInput.value = questionData.points || 1;
+                                console.log('Set points to:', questionData.points || 1);
+                            }
+                            
+                            // Set additional data based on question type
+                            if (questionData.type === 'mcq') {
+                                console.log('Setting MCQ data:', questionData);
+                                // Set MCQ choices and correct answer
+                                if (questionData.choice_a) {
+                                    const choiceA = document.querySelector(`#choice_a_${questionIndex}`);
+                                    if (choiceA) {
+                                        choiceA.value = questionData.choice_a;
+                                        console.log('Set choice A:', questionData.choice_a);
+                                    } else {
+                                        console.warn('Choice A input not found for index:', questionIndex);
+                                    }
+                                }
+                                if (questionData.choice_b) {
+                                    const choiceB = document.querySelector(`#choice_b_${questionIndex}`);
+                                    if (choiceB) {
+                                        choiceB.value = questionData.choice_b;
+                                        console.log('Set choice B:', questionData.choice_b);
+                                    } else {
+                                        console.warn('Choice B input not found for index:', questionIndex);
+                                    }
+                                }
+                                if (questionData.choice_c) {
+                                    const choiceC = document.querySelector(`#choice_c_${questionIndex}`);
+                                    if (choiceC) {
+                                        choiceC.value = questionData.choice_c;
+                                        console.log('Set choice C:', questionData.choice_c);
+                                    } else {
+                                        console.warn('Choice C input not found for index:', questionIndex);
+                                    }
+                                }
+                                if (questionData.choice_d) {
+                                    const choiceD = document.querySelector(`#choice_d_${questionIndex}`);
+                                    if (choiceD) {
+                                        choiceD.value = questionData.choice_d;
+                                        console.log('Set choice D:', questionData.choice_d);
+                                    } else {
+                                        console.warn('Choice D input not found for index:', questionIndex);
+                                    }
+                                }
+                                if (questionData.correct_answer) {
+                                    const correctAnswerValue = questionData.correct_answer.toString().toUpperCase();
+                                    const correctAnswerRadio = document.querySelector(`#correct_${correctAnswerValue.toLowerCase()}_${questionIndex}`);
+                                    if (correctAnswerRadio) {
+                                        correctAnswerRadio.checked = true;
+                                        console.log('Set correct answer radio:', correctAnswerValue);
+                                    } else {
+                                        console.warn('Correct answer radio not found for:', correctAnswerValue, 'index:', questionIndex);
+                                    }
+                                }
+                            } else if (questionData.type === 'matching') {
+                                console.log('Setting matching data:', questionData);
+                                // Note: Matching items will be set after additional rows/columns are created
+                                
+                                // Handle matching questions
+                                if (questionData.type === 'matching') {
+                                    console.log('Processing matching question for index:', questionIndex);
+                                    
+                                    // First, add additional rows and columns if needed
+                                    try {
+                                        const leftItems = typeof questionData.left_items === 'string' ? 
+                                            JSON.parse(questionData.left_items) : questionData.left_items;
+                                        const rightItems = typeof questionData.right_items === 'string' ? 
+                                            JSON.parse(questionData.right_items) : questionData.right_items;
+                                        
+                                        if (Array.isArray(leftItems) && Array.isArray(rightItems)) {
+                                            console.log('Left items count:', leftItems.length, 'Right items count:', rightItems.length);
+                                            
+                                            // Calculate how many additional rows and columns we need
+                                            const additionalRows = Math.max(0, leftItems.length - 2);
+                                            const additionalColumns = Math.max(0, rightItems.length - 2);
+                                            
+                                            console.log('Need to add:', additionalRows, 'rows and', additionalColumns, 'columns');
+                                            
+                                            // Add additional rows (addMatchingRow will automatically add columns, but we'll clean up extras)
+                                            for (let i = 0; i < additionalRows; i++) {
+                                                if (typeof addMatchingRow === 'function') {
+                                                    addMatchingRow(questionIndex);
+                                                    console.log(`Added row ${i + 3} for index:`, questionIndex);
+                                                }
+                                            }
+                                            
+                                            // Now remove any extra columns that were automatically added
+                                            const currentColumns = document.querySelectorAll(`input[name="questions[${questionIndex}][right_items][]"]`);
+                                            const neededColumns = rightItems.length;
+                                            
+                                            console.log('Current columns:', currentColumns.length, 'Needed columns:', neededColumns);
+                                            
+                                            // Remove extra columns if we have more than needed
+                                            if (currentColumns.length > neededColumns) {
+                                                const columnsToRemove = currentColumns.length - neededColumns;
+                                                console.log('Removing', columnsToRemove, 'extra columns');
+                                                
+                                                // Remove the extra columns (from the end)
+                                                for (let i = currentColumns.length - 1; i >= neededColumns; i--) {
+                                                    const columnInput = currentColumns[i];
+                                                    const inputGroup = columnInput.closest('.input-group');
+                                                    if (inputGroup) {
+                                                        inputGroup.remove();
+                                                        console.log(`Removed extra column ${i + 1}`);
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // Add additional columns if we need more
+                                            const finalColumns = document.querySelectorAll(`input[name="questions[${questionIndex}][right_items][]"]`).length;
+                                            const columnsToAdd = Math.max(0, neededColumns - finalColumns);
+                                            
+                                            if (columnsToAdd > 0) {
+                                                console.log('Adding', columnsToAdd, 'additional columns');
+                                                for (let i = 0; i < columnsToAdd; i++) {
+                                                    if (typeof addMatchingColumn === 'function') {
+                                                        addMatchingColumn(questionIndex);
+                                                        console.log(`Added additional column ${finalColumns + i + 1}`);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } catch (e) {
+                                        console.error('Error adding additional rows/columns:', e);
+                                    }
+                                    
+                                    // Then, call updateMatchingMatches to populate dropdown options
+                                    if (typeof updateMatchingMatches === 'function') {
+                                        updateMatchingMatches(questionIndex);
+                                        console.log('Called updateMatchingMatches for index:', questionIndex);
+                                    }
+                                    
+                                    // Now populate the left and right items after rows/columns are created
+                                    setTimeout(() => {
+                                        // Set matching items
+                                        if (questionData.left_items) {
+                                            try {
+                                                const leftItems = typeof questionData.left_items === 'string' ? 
+                                                    JSON.parse(questionData.left_items) : questionData.left_items;
+                                                if (Array.isArray(leftItems)) {
+                                                    console.log('Setting left items:', leftItems);
+                                                    const leftInputs = document.querySelectorAll(`input[name="questions[${questionIndex}][left_items][]"]`);
+                                                    leftItems.forEach((item, index) => {
+                                                        if (leftInputs[index]) {
+                                                            leftInputs[index].value = item;
+                                                            console.log(`Set left item ${index}:`, item);
+                                                        } else {
+                                                            console.warn(`Left input ${index} not found for index:`, questionIndex);
+                                                        }
+                                                    });
+                                                }
+                                            } catch (e) {
+                                                console.error('Error parsing left_items:', e);
+                                            }
+                                        }
+                                        if (questionData.right_items) {
+                                            try {
+                                                const rightItems = typeof questionData.right_items === 'string' ? 
+                                                    JSON.parse(questionData.right_items) : questionData.right_items;
+                                                if (Array.isArray(rightItems)) {
+                                                    console.log('Setting right items:', rightItems);
+                                                    const rightInputs = document.querySelectorAll(`input[name="questions[${questionIndex}][right_items][]"]`);
+                                                    rightItems.forEach((item, index) => {
+                                                        if (rightInputs[index]) {
+                                                            rightInputs[index].value = item;
+                                                            console.log(`Set right item ${index}:`, item);
+                                                        } else {
+                                                            console.warn(`Right input ${index} not found for index:`, questionIndex);
+                                                        }
+                                                    });
+                                                }
+                                            } catch (e) {
+                                                console.error('Error parsing right_items:', e);
+                                            }
+                                        }
+                                        
+                                        // Update matching matches after populating items
+                                        if (typeof updateMatchingMatches === 'function') {
+                                            updateMatchingMatches(questionIndex);
+                                        }
+                                    }, 100);
+                                    
+                                    // Then set correct matches after a delay to ensure text fields are populated
+                                    if (questionData.answer) {
+                                        console.log('=== MATCHING QUESTION IMPORT DEBUG ===');
+                                        console.log('Setting correct matches:', questionData.answer);
+                                        console.log('Answer type:', typeof questionData.answer);
+                                        console.log('Full question data:', questionData);
+                                        console.log('Left items:', questionData.left_items);
+                                        console.log('Right items:', questionData.right_items);
+                                        
+                                        // Wait for text fields to be populated
+                                        setTimeout(() => {
+                                            try {
+                                                // Get the right items first
+                                                const rightInputs = document.querySelectorAll(`input[name="questions[${questionIndex}][right_items][]"]`);
+                                                const rightItems = Array.from(rightInputs).map(input => input.value.trim());
+                                                console.log('Right items for matching:', rightItems);
+                                                
+                                                // Normalize the correct pairs data (handle various formats)
+                                                const normalizeCorrectPairs = (rawData) => {
+                                                    let out = [];
+                                                    if (!rawData) return out;
+                                                    
+                                                    const parsed = (typeof rawData === 'string') ? 
+                                                        (function() { 
+                                                            try { return JSON.parse(rawData); } 
+                                                            catch(e) { return rawData; } 
+                                                        })() : rawData;
+                                                    
+                                                    if (Array.isArray(parsed)) {
+                                                        parsed.forEach(item => {
+                                                            if (typeof item === 'string') {
+                                                                out.push(item);
+                                                            } else if (typeof item === 'number') {
+                                                                // If it's a number, it might be an index
+                                                                out.push(rightItems[item] ?? '');
+                                                            } else if (item && typeof item === 'object') {
+                                                                out.push(item.value ?? item.answer ?? item.right ?? item.right_item ?? '');
+                                                            }
+                                                        });
+                                                    } else if (parsed && typeof parsed === 'object') {
+                                                        Object.keys(parsed).forEach(k => out.push(parsed[k]));
+                                                    } else if (typeof parsed === 'number') {
+                                                        out.push(rightItems[parsed] ?? '');
+                                                    }
+                                                    
+                                                    return out;
+                                                };
+                                                
+                                                const correctPairs = normalizeCorrectPairs(questionData.answer);
+                                                console.log('Normalized correct pairs:', correctPairs);
+                                                
+                                                if (Array.isArray(correctPairs)) {
+                                                    console.log('Correct pairs array:', correctPairs);
+                                                    
+                                                    // Get the matching dropdowns
+                                                    const selects = document.querySelectorAll(`#matching-matches_${questionIndex} select`);
+                                                    
+                                                    console.log('Found selects:', selects.length);
+                                                    
+                                                    // Wait for dropdowns to be ready with options (improved timing logic)
+                                                    const applyCorrectMatches = () => {
+                                                        const currentSelects = document.querySelectorAll(`#matching-matches_${questionIndex} select`);
+                                                        const ready = Array.from(currentSelects).every(s => s.options.length > 1);
+                                                        console.log('Dropdowns ready check:', ready, 'Selects found:', currentSelects.length);
+                                                        
+                                                        if (!ready) {
+                                                            console.log('Dropdowns not ready, retrying in 80ms...');
+                                                            setTimeout(applyCorrectMatches, 80);
+                                                            return;
+                                                        }
+                                                        
+                                                        console.log('Dropdowns are ready, setting correct matches...');
+                                                        setCorrectMatches(currentSelects, correctPairs, rightItems);
+                                                    };
+                                                    
+                                                    // Start the retry logic
+                                                    setTimeout(applyCorrectMatches, 200);
+                                                    
+                                                    // Helper function to set correct matches (improved version)
+                                                    function setCorrectMatches(selects, correctPairs, rightItems) {
+                                                        console.log('setCorrectMatches called with:', {
+                                                            selects: selects.length,
+                                                            correctPairs: correctPairs,
+                                                            rightItems: rightItems
+                                                        });
+                                                        
+                                                        correctPairs.forEach((targetVal, idxSel) => {
+                                                            const sel = selects[idxSel];
+                                                            if (!sel) {
+                                                                console.warn(`❌ Missing select for match ${idxSel}`);
+                                                                return;
+                                                            }
+                                                            
+                                                            const target = (targetVal ?? '').toString().trim();
+                                                            console.log(`Processing match ${idxSel}: "${target}"`);
+                                                            
+                                                            if (!target) {
+                                                                console.warn(`❌ Empty target for match ${idxSel}`);
+                                                                return;
+                                                            }
+                                                            
+                                                            let chosen = false;
+                                                            const targetLower = target.toLowerCase();
+                                                            
+                                                            // First try: exact match by value or text
+                                                            Array.from(sel.options).forEach(opt => {
+                                                                const optValue = (opt.value || '').toString().trim();
+                                                                const optText = (opt.textContent || '').toString().trim();
+                                                                
+                                                                if (optValue.toLowerCase() === targetLower || optText.toLowerCase() === targetLower) {
+                                                                    opt.selected = true;
+                                                                    chosen = true;
+                                                                    console.log(`✅ Exact match found: "${optText}" (value: ${optValue})`);
+                                                                }
+                                                            });
+                                                            
+                                                            // Second try: partial match if exact match failed
+                                                            if (!chosen) {
+                                                                Array.from(sel.options).forEach(opt => {
+                                                                    const optValue = (opt.value || '').toString().trim();
+                                                                    const optText = (opt.textContent || '').toString().trim();
+                                                                    
+                                                                    if (optValue.toLowerCase().includes(targetLower) || 
+                                                                        targetLower.includes(optValue.toLowerCase()) ||
+                                                                        optText.toLowerCase().includes(targetLower) || 
+                                                                        targetLower.includes(optText.toLowerCase())) {
+                                                                        opt.selected = true;
+                                                                        chosen = true;
+                                                                        console.log(`✅ Partial match found: "${optText}" (value: ${optValue})`);
+                                                                    }
+                                                                });
+                                                            }
+                                                            
+                                                            // Third try: direct value assignment if still no match
+                                                            if (!chosen) {
+                                                                sel.value = targetVal;
+                                                                console.log(`✅ Direct value assignment: ${targetVal}`);
+                                                            }
+                                                            
+                                                            // Trigger change event
+                                                            sel.dispatchEvent(new Event('change'));
+                                                        });
+                                                    }
+                                                    
+                                                    // Dropdowns are now ready for correct matches
+                                                }
+                                            } catch (e) {
+                                                console.error('Error setting correct matches:', e);
+                                            }
+                                        }, 400);
+                                    }
+                                }
+                            }
+                            
+                            // Update question numbering
+                            if (typeof updateQuestionNumbers === 'function') {
+                                updateQuestionNumbers();
+                            }
+                        }, 200);
+                    }
+                }, 100);
+            } catch (error) {
+                console.error('Error adding imported question:', error);
+                alert('Error importing question. Please try again.');
+            }
+        }
     </script>
     </div>
 </body>

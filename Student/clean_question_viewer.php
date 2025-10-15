@@ -89,6 +89,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $questionSetId = (int)($_POST['question_set_id']);
                 $responses = json_decode($_POST['responses'] ?? '{}', true) ?? [];
                 
+                // Debug logging
+                error_log('Received responses: ' . print_r($responses, true));
+                
                 $result = $responseHandler->submitResponses($_SESSION['student_id'], $questionSetId, $responses);
                 
                 if ($result) {
@@ -961,7 +964,7 @@ ob_start();
                         </div>
                     <?php else: ?>
                         <button class="btn" data-set-id="<?php echo (int)$set['id']; ?>" data-timer="<?php echo (int)$timer; ?>" data-open-at="<?php echo htmlspecialchars($openAt ?? ''); ?>" data-open-ts="<?php echo $openAt ? (int)@strtotime($openAt) : 0; ?>" data-duration="<?php echo max(0,(int)$timer*60); ?>" onclick="guardAndStart(this, <?php echo $set['id']; ?>, '<?php echo htmlspecialchars($set['set_title']); ?>')">
-                            <i class="fas fa-play"></i> Start Quiz
+                            <i class="fas fa-play"></i> Start 
                         </button>
                     <?php endif; ?>
                 </div>
@@ -1467,6 +1470,8 @@ ob_start();
                         const answer = zone.dataset.answer || '';
                         matchingResponses[pairIndex] = answer;
                     });
+                    // Debug logging
+                    console.log('Collecting matching responses for question', question.id, ':', matchingResponses);
                 studentResponses[question.id] = matchingResponses;
                 } else {
                     const response = document.querySelector(`input[name="question_${question.id}"]:checked, textarea[name="question_${question.id}"]`);
@@ -1477,6 +1482,9 @@ ob_start();
         function submitResponses() {
             // build from collected studentResponses (already gathered step-by-step)
             const responses = { ...studentResponses };
+            
+            // Debug logging
+            console.log('Submitting responses:', responses);
             
             if (Object.keys(responses).length === 0) {
                 alert('Please answer at least one question!');

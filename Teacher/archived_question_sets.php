@@ -31,7 +31,7 @@ render_teacher_header('archived_question_sets.php', $teacherName, 'Archived Ques
 ?>
 
 <style>
-.archived-shell{max-width:1200px;margin:0 auto;padding:20px}
+.archived-shell{max-width:1700px;margin:0 auto;padding:20px}
 .archived-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .archived-table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1)}
 .archived-table thead{background:linear-gradient(135deg,#64748b 0%,#334155 100%);color:#fff}
@@ -43,7 +43,14 @@ render_teacher_header('archived_question_sets.php', $teacherName, 'Archived Ques
 .btn-unarchive:hover{background:#059669}
 .btn-delete{background:#ef4444;color:#fff}
 .btn-delete:hover{background:#dc2626}
+.btn-bulk-delete{background:#dc2626;color:#fff;margin-left:8px}
+.btn-bulk-delete:hover{background:#b91c1c}
+.btn-bulk-delete:disabled{background:#9ca3af;cursor:not-allowed}
 .row-actions{display:flex;gap:8px}
+.checkbox-cell{width:50px;text-align:center}
+.checkbox{width:18px;height:18px;cursor:pointer}
+.bulk-actions{display:none;align-items:center;gap:8px;margin-bottom:16px;padding:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px}
+.bulk-actions.show{display:flex}
 </style>
 
 <div class="archived-shell">
@@ -62,9 +69,19 @@ render_teacher_header('archived_question_sets.php', $teacherName, 'Archived Ques
             No archived sets.
         </div>
     <?php else: ?>
+        <!-- Bulk Actions Bar -->
+        <div class="bulk-actions" id="bulkActions">
+            <span id="selectedCount">0</span> item(s) selected
+            <button class="btn btn-bulk-delete" id="bulkDeleteBtn" onclick="bulkDelete()">
+                <i class="fas fa-trash"></i> Delete Selected
+            </button>
+        </div>
         <table class="archived-table">
             <thead>
                 <tr>
+                    <th class="checkbox-cell">
+                        <input type="checkbox" class="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                    </th>
                     <th>Question Set</th>
                     <th>Section</th>
                     <th>Created</th>
@@ -74,6 +91,9 @@ render_teacher_header('archived_question_sets.php', $teacherName, 'Archived Ques
             <tbody>
                 <?php foreach ($archivedSets as $set): ?>
                 <tr>
+                    <td class="checkbox-cell">
+                        <input type="checkbox" class="checkbox row-checkbox" value="<?php echo (int)$set['id']; ?>" onchange="updateSelection()">
+                    </td>
                     <td><strong><?php echo htmlspecialchars($set['set_title']); ?></strong></td>
                     <td><?php echo htmlspecialchars($set['section_name'] ?? ''); ?></td>
                     <td><?php echo date('M j, Y g:i A', strtotime($set['created_at'])); ?></td>
@@ -91,6 +111,109 @@ render_teacher_header('archived_question_sets.php', $teacherName, 'Archived Ques
 </div>
 
 <script>
+// Checkbox functionality
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+    
+    rowCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+    
+    updateSelection();
+}
+
+function updateSelection() {
+    const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const bulkActions = document.getElementById('bulkActions');
+    const selectedCount = document.getElementById('selectedCount');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    const totalBoxes = rowCheckboxes.length;
+    
+    // Update selected count
+    selectedCount.textContent = checkedBoxes.length;
+    
+    // Show/hide bulk actions
+    if (checkedBoxes.length > 0) {
+        bulkActions.classList.add('show');
+    } else {
+        bulkActions.classList.remove('show');
+    }
+    
+    // Update select all checkbox state
+    if (checkedBoxes.length === 0) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = false;
+    } else if (checkedBoxes.length === totalBoxes) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = true;
+    } else {
+        selectAllCheckbox.indeterminate = true;
+        selectAllCheckbox.checked = false;
+    }
+    
+    // Enable/disable bulk delete button
+    bulkDeleteBtn.disabled = checkedBoxes.length === 0;
+}
+
+function bulkDelete() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    if (checkedBoxes.length === 0) return;
+    
+    const count = checkedBoxes.length;
+    if (!confirm(`Are you sure you want to permanently delete ${count} question set(s)? This action cannot be undone.`)) {
+        return;
+    }
+    
+    const setIds = Array.from(checkedBoxes).map(checkbox => checkbox.value);
+    
+    // Disable the button during operation
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    bulkDeleteBtn.disabled = true;
+    bulkDeleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+    
+    // Process deletions sequentially to avoid overwhelming the server
+    let completed = 0;
+    let errors = [];
+    
+    function deleteNext() {
+        if (completed >= setIds.length) {
+            // All deletions completed
+            if (errors.length > 0) {
+                alert(`Deleted ${completed - errors.length} sets successfully. Errors: ${errors.join(', ')}`);
+            } else {
+                alert(`Successfully deleted ${completed} question set(s).`);
+            }
+            location.reload();
+            return;
+        }
+        
+        const setId = setIds[completed];
+        const p = new URLSearchParams({action:'delete_question_set', set_id:setId});
+        
+        fetch('clean_question_creator.php', {method:'POST', body:p})
+            .then(r => r.json())
+            .then(d => {
+                if (!d.success) {
+                    errors.push(`Set ${setId}: ${d.error || 'Failed'}`);
+                }
+                completed++;
+                deleteNext();
+            })
+            .catch(e => {
+                errors.push(`Set ${setId}: Network error`);
+                completed++;
+                deleteNext();
+            });
+    }
+    
+    deleteNext();
+}
+
+// Original functions
 function unarchiveSet(setId){
     if(!confirm('Unarchive this set?')) return;
     const p = new URLSearchParams({action:'unarchive_question_set', set_id:setId});
@@ -99,6 +222,7 @@ function unarchiveSet(setId){
       .then(d=>{ if(d.success){ location.reload(); } else { alert('Error: '+(d.error||'Failed')); } })
       .catch(e=>alert('Network error: '+e.message));
 }
+
 function deleteSet(setId){
     if(!confirm('Delete this set permanently?')) return;
     const p = new URLSearchParams({action:'delete_question_set', set_id:setId});
