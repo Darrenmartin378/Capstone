@@ -4,6 +4,28 @@ require_once __DIR__ . '/includes/student_init.php';
 $studentId = (int)($_SESSION['student_id'] ?? 0);
 $sectionId = (int)($_SESSION['section_id'] ?? ($_SESSION['student_section_id'] ?? 0));
 
+// Check if viewed_notifications table exists, create if not
+try {
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'viewed_notifications'");
+    if ($tableCheck->num_rows == 0) {
+        $createTable = "
+            CREATE TABLE `viewed_notifications` (
+              `id` int(11) NOT NULL AUTO_INCREMENT,
+              `student_id` int(11) NOT NULL,
+              `notification_type` enum('announcement','question_set','material') NOT NULL,
+              `notification_id` int(11) NOT NULL,
+              `viewed_at` timestamp NOT NULL DEFAULT current_timestamp(),
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `unique_view` (`student_id`, `notification_type`, `notification_id`),
+              KEY `student_id` (`student_id`),
+              KEY `notification_type` (`notification_type`),
+              KEY `notification_id` (`notification_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        ";
+        $conn->query($createTable);
+    }
+} catch (Throwable $e) {}
+
 // Fetch announcements (supports legacy column `content` and optional section targeting)
 $ann = [];
 try {
@@ -15,14 +37,24 @@ try {
     $hasMessage = isset($cols['message']);
     $hasContent = isset($cols['content']);
     $bodyExpr = $hasMessage && $hasContent ? 'COALESCE(message, content)' : ($hasMessage ? 'message' : ($hasContent ? 'content' : "''"));
+    
+    // Exclude viewed announcements
     if ($hasSection && $sectionId > 0) {
-        $sql = "SELECT id, title, $bodyExpr AS message, created_at FROM announcements WHERE (section_id IS NULL OR section_id = ?) ORDER BY created_at DESC LIMIT 20";
+        $sql = "SELECT a.id, a.title, $bodyExpr AS message, a.created_at 
+                FROM announcements a 
+                LEFT JOIN viewed_notifications vn ON vn.student_id = ? AND vn.notification_type = 'announcement' AND vn.notification_id = a.id
+                WHERE (a.section_id IS NULL OR a.section_id = ?) AND vn.id IS NULL
+                ORDER BY a.created_at DESC LIMIT 20";
         $st = $conn->prepare($sql);
-        if ($st) { $st->bind_param('i', $sectionId); $st->execute(); $ann = $st->get_result()->fetch_all(MYSQLI_ASSOC); }
+        if ($st) { $st->bind_param('ii', $studentId, $sectionId); $st->execute(); $ann = $st->get_result()->fetch_all(MYSQLI_ASSOC); }
     } else {
-        $sql = "SELECT id, title, $bodyExpr AS message, created_at FROM announcements ORDER BY created_at DESC LIMIT 20";
-        $ra = $conn->query($sql);
-        if ($ra) { $ann = $ra->fetch_all(MYSQLI_ASSOC); }
+        $sql = "SELECT a.id, a.title, $bodyExpr AS message, a.created_at 
+                FROM announcements a 
+                LEFT JOIN viewed_notifications vn ON vn.student_id = ? AND vn.notification_type = 'announcement' AND vn.notification_id = a.id
+                WHERE vn.id IS NULL
+                ORDER BY a.created_at DESC LIMIT 20";
+        $st = $conn->prepare($sql);
+        if ($st) { $st->bind_param('i', $studentId); $st->execute(); $ann = $st->get_result()->fetch_all(MYSQLI_ASSOC); }
     }
 } catch (Throwable $e) {}
 
@@ -61,12 +93,18 @@ try {
     }
 } catch (Throwable $e) { /* ignore */ }
 
-// Fetch question sets for this section
+// Fetch question sets for this section (exclude viewed ones)
 $sets = [];
 try {
     if ($sectionId > 0) {
-        $st = $conn->prepare("SELECT id, set_title, created_at FROM question_sets WHERE section_id = ? ORDER BY created_at DESC LIMIT 20");
-        if ($st) { $st->bind_param('i', $sectionId); $st->execute(); $sets = $st->get_result()->fetch_all(MYSQLI_ASSOC); }
+        $st = $conn->prepare("
+            SELECT qs.id, qs.set_title, qs.created_at 
+            FROM question_sets qs 
+            LEFT JOIN viewed_notifications vn ON vn.student_id = ? AND vn.notification_type = 'question_set' AND vn.notification_id = qs.id
+            WHERE qs.section_id = ? AND vn.id IS NULL
+            ORDER BY qs.created_at DESC LIMIT 20
+        ");
+        if ($st) { $st->bind_param('ii', $studentId, $sectionId); $st->execute(); $sets = $st->get_result()->fetch_all(MYSQLI_ASSOC); }
     }
 } catch (Throwable $e) {}
 
@@ -94,12 +132,21 @@ try {
         $secCol = null; foreach ($secCandidates as $c) { if (isset($mcols[$c])) { $secCol = $c; break; } }
 
         if ($secCol !== null && $sectionId > 0) {
-            $sqlm = "SELECT id, `$titleCol` AS title, `$bodyCol` AS body, `$dateCol` AS created_at FROM materials WHERE (`$secCol` IS NULL OR `$secCol` = ?) ORDER BY `$dateCol` DESC LIMIT 20";
+            $sqlm = "SELECT m.id, m.`$titleCol` AS title, m.`$bodyCol` AS body, m.`$dateCol` AS created_at 
+                     FROM materials m 
+                     LEFT JOIN viewed_notifications vn ON vn.student_id = ? AND vn.notification_type = 'material' AND vn.notification_id = m.id
+                     WHERE (m.`$secCol` IS NULL OR m.`$secCol` = ?) AND vn.id IS NULL
+                     ORDER BY m.`$dateCol` DESC LIMIT 20";
             $stm = $conn->prepare($sqlm);
-            if ($stm) { $stm->bind_param('i', $sectionId); $stm->execute(); $materials = $stm->get_result()->fetch_all(MYSQLI_ASSOC); }
+            if ($stm) { $stm->bind_param('ii', $studentId, $sectionId); $stm->execute(); $materials = $stm->get_result()->fetch_all(MYSQLI_ASSOC); }
         } else {
-            $sqlm = "SELECT id, `$titleCol` AS title, `$bodyCol` AS body, `$dateCol` AS created_at FROM materials ORDER BY `$dateCol` DESC LIMIT 20";
-            if ($rm = $conn->query($sqlm)) { $materials = $rm->fetch_all(MYSQLI_ASSOC); }
+            $sqlm = "SELECT m.id, m.`$titleCol` AS title, m.`$bodyCol` AS body, m.`$dateCol` AS created_at 
+                     FROM materials m 
+                     LEFT JOIN viewed_notifications vn ON vn.student_id = ? AND vn.notification_type = 'material' AND vn.notification_id = m.id
+                     WHERE vn.id IS NULL
+                     ORDER BY m.`$dateCol` DESC LIMIT 20";
+            $stm = $conn->prepare($sqlm);
+            if ($stm) { $stm->bind_param('i', $studentId); $stm->execute(); $materials = $stm->get_result()->fetch_all(MYSQLI_ASSOC); }
         }
     }
 } catch (Throwable $e) {}
@@ -118,7 +165,8 @@ try {
 <?php endif; ?>
 
 <?php foreach ($ann as $a): ?>
-    <a class="nf-item" href="student_announcements.php" style="text-decoration:none;color:inherit;display:block">
+    <a class="nf-item" href="student_announcements.php" style="text-decoration:none;color:inherit;display:block" 
+       onclick="markNotificationViewedAndRedirect('announcement', <?php echo $a['id']; ?>, 'student_announcements.php'); return false;">
         <div class="nf-head">
             <div><span class="pill">📣 Announcement</span> <strong><?php echo h($a['title']); ?></strong></div>
             <div class="muted"><?php echo h(date('M j, Y g:ia', strtotime($a['created_at']))); ?></div>
@@ -128,7 +176,8 @@ try {
 <?php endforeach; ?>
 
 <?php foreach ($sets as $s): ?>
-    <a class="nf-item" href="clean_question_viewer.php" style="text-decoration:none;color:inherit;display:block">
+    <a class="nf-item" href="clean_question_viewer.php" style="text-decoration:none;color:inherit;display:block"
+       onclick="markNotificationViewedAndRedirect('question_set', <?php echo $s['id']; ?>, 'test_redirect.php'); return false;">
         <div class="nf-head">
             <div><span class="pill">❓ Question Set</span> <strong><?php echo h($s['set_title']); ?></strong></div>
             <div class="muted"><?php echo h(date('M j, Y g:ia', strtotime($s['created_at']))); ?></div>
@@ -138,7 +187,8 @@ try {
 <?php endforeach; ?>
 
 <?php foreach ($materials as $m): ?>
-    <a class="nf-item" href="student_materials.php" style="text-decoration:none;color:inherit;display:block">
+    <a class="nf-item" href="student_materials.php" style="text-decoration:none;color:inherit;display:block"
+       onclick="markNotificationViewedAndRedirect('material', <?php echo $m['id']; ?>, 'student_materials.php'); return false;">
         <div class="nf-head">
             <div><span class="pill">📚 Material</span> <strong><?php echo h($m['title']); ?></strong></div>
             <div class="muted"><?php echo h(date('M j, Y g:ia', strtotime($m['created_at']))); ?></div>
@@ -146,4 +196,131 @@ try {
         <div class="nf-body"><?php echo nl2br(h(mb_strimwidth((string)($m['body'] ?? ''),0,180,'…'))); ?></div>
     </a>
 <?php endforeach; ?>
+
+<script>
+function markNotificationViewed(type, id) {
+    // Send AJAX request to mark notification as viewed
+    fetch('mark_notification_viewed.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(id)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Remove the notification from the UI
+            const notificationElement = event.target.closest('.nf-item');
+            if (notificationElement) {
+                notificationElement.style.opacity = '0.5';
+                notificationElement.style.pointerEvents = 'none';
+                // Optionally remove the element after a delay
+                setTimeout(() => {
+                    notificationElement.remove();
+                    // Check if there are any notifications left
+                    const remainingNotifications = document.querySelectorAll('.nf-item');
+                    if (remainingNotifications.length === 0) {
+                        const container = document.getElementById('notificationsBody');
+                        if (container) {
+                            container.innerHTML = '<div style="color:#64748b;">No new notifications.</div>';
+                        }
+                    }
+                    // Update notification badge count
+                    updateNotificationBadge();
+                }, 500);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error marking notification as viewed:', error);
+    });
+}
+
+function updateNotificationBadge() {
+    // Update the notification badge count by refreshing the page or making an AJAX call
+    // For simplicity, we'll just reload the notifications
+    const modal = document.getElementById('notificationsModal');
+    if (modal && modal.style.display === 'flex') {
+        openNotifications();
+    }
+}
+
+function markNotificationViewedAndRedirect(type, id, redirectUrl) {
+    // Prevent default link behavior
+    event.preventDefault();
+    
+    console.log('Marking notification as viewed:', type, id, redirectUrl);
+    
+    // Send AJAX request to mark notification as viewed
+    fetch('mark_notification_viewed.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(id)
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.text(); // Use text() first to see raw response
+    })
+    .then(text => {
+        console.log('Raw response:', text);
+        try {
+            const data = JSON.parse(text);
+            console.log('Parsed response data:', data);
+            if (data.success) {
+                // Close the notification modal
+                if (typeof closeNotifications === 'function') {
+                    closeNotifications();
+                } else {
+                    document.getElementById('notificationsModal').style.display = 'none';
+                }
+                // Show success message
+                alert('Notification marked as viewed! Redirecting in 3 seconds...');
+                // Redirect to the target page after a delay
+                setTimeout(() => {
+                    window.location.href = redirectUrl;
+                }, 3000);
+            } else {
+                console.error('Failed to mark notification as viewed:', data.message);
+                alert('Failed to mark notification as viewed: ' + data.message + '. Redirecting in 3 seconds...');
+                // Still redirect even if marking fails
+                setTimeout(() => {
+                    window.location.href = redirectUrl;
+                }, 3000);
+            }
+        } catch (e) {
+            console.error('Error parsing JSON response:', e);
+            console.log('Raw response was:', text);
+            alert('Error parsing response. Still redirecting in 3 seconds...');
+            // Close modal and redirect anyway
+            if (typeof closeNotifications === 'function') {
+                closeNotifications();
+            } else {
+                document.getElementById('notificationsModal').style.display = 'none';
+            }
+            setTimeout(() => {
+                window.location.href = redirectUrl;
+            }, 3000);
+        }
+    })
+    .catch(error => {
+        console.error('Error marking notification as viewed:', error);
+        alert('Error: ' + error.message + '. Still redirecting in 3 seconds...');
+        // Close modal and redirect anyway
+        if (typeof closeNotifications === 'function') {
+            closeNotifications();
+        } else {
+            document.getElementById('notificationsModal').style.display = 'none';
+        }
+        setTimeout(() => {
+            window.location.href = redirectUrl;
+        }, 3000);
+    });
+}
+</script>
 

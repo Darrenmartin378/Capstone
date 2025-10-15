@@ -1,15 +1,117 @@
 <?php
-// Compute notification count (announcements + new question sets for the student's section)
+// Compute notification count (announcements + new question sets for the student's section) - excluding viewed ones
 $notificationCount = 0;
+$studentId = (int)($_SESSION['student_id'] ?? 0);
 $studentSectionId = (int)($_SESSION['section_id'] ?? ($_SESSION['student_section_id'] ?? 0));
+
+// Check if viewed_notifications table exists, create if not
 try {
-    $resA = $conn->query("SELECT COUNT(*) AS c FROM announcements");
-    if ($resA && ($r = $resA->fetch_assoc())) { $notificationCount += (int)$r['c']; }
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'viewed_notifications'");
+    if ($tableCheck->num_rows == 0) {
+        $createTable = "
+            CREATE TABLE `viewed_notifications` (
+              `id` int(11) NOT NULL AUTO_INCREMENT,
+              `student_id` int(11) NOT NULL,
+              `notification_type` enum('announcement','question_set','material') NOT NULL,
+              `notification_id` int(11) NOT NULL,
+              `viewed_at` timestamp NOT NULL DEFAULT current_timestamp(),
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `unique_view` (`student_id`, `notification_type`, `notification_id`),
+              KEY `student_id` (`student_id`),
+              KEY `notification_type` (`notification_type`),
+              KEY `notification_id` (`notification_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        ";
+        $conn->query($createTable);
+    }
 } catch (Throwable $e) { /* ignore */ }
+
+// Count unviewed announcements
 try {
     if ($studentSectionId > 0) {
-        $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM question_sets WHERE section_id = ?");
-        if ($stmt) { $stmt->bind_param('i', $studentSectionId); $stmt->execute(); $rc = $stmt->get_result()->fetch_assoc(); $notificationCount += (int)($rc['c'] ?? 0); }
+        $stmt = $conn->prepare("
+            SELECT COUNT(*) AS c 
+            FROM announcements a 
+            LEFT JOIN viewed_notifications vn ON vn.student_id = ? AND vn.notification_type = 'announcement' AND vn.notification_id = a.id
+            WHERE (a.section_id IS NULL OR a.section_id = ?) AND vn.id IS NULL
+        ");
+        if ($stmt) { 
+            $stmt->bind_param('ii', $studentId, $studentSectionId); 
+            $stmt->execute(); 
+            $rc = $stmt->get_result()->fetch_assoc(); 
+            $notificationCount += (int)($rc['c'] ?? 0); 
+        }
+    } else {
+        $stmt = $conn->prepare("
+            SELECT COUNT(*) AS c 
+            FROM announcements a 
+            LEFT JOIN viewed_notifications vn ON vn.student_id = ? AND vn.notification_type = 'announcement' AND vn.notification_id = a.id
+            WHERE vn.id IS NULL
+        ");
+        if ($stmt) { 
+            $stmt->bind_param('i', $studentId); 
+            $stmt->execute(); 
+            $rc = $stmt->get_result()->fetch_assoc(); 
+            $notificationCount += (int)($rc['c'] ?? 0); 
+        }
+    }
+} catch (Throwable $e) { /* ignore */ }
+
+// Count unviewed question sets
+try {
+    if ($studentSectionId > 0) {
+        $stmt = $conn->prepare("
+            SELECT COUNT(*) AS c 
+            FROM question_sets qs 
+            LEFT JOIN viewed_notifications vn ON vn.student_id = ? AND vn.notification_type = 'question_set' AND vn.notification_id = qs.id
+            WHERE qs.section_id = ? AND vn.id IS NULL
+        ");
+        if ($stmt) { 
+            $stmt->bind_param('ii', $studentId, $studentSectionId); 
+            $stmt->execute(); 
+            $rc = $stmt->get_result()->fetch_assoc(); 
+            $notificationCount += (int)($rc['c'] ?? 0); 
+        }
+    }
+} catch (Throwable $e) { /* ignore */ }
+
+// Count unviewed materials
+try {
+    $mcols = [];
+    if ($rc2 = $conn->query("SHOW COLUMNS FROM materials")) {
+        while ($r2 = $rc2->fetch_assoc()) { $mcols[strtolower($r2['Field'])] = true; }
+    }
+    if (!empty($mcols)) {
+        $secCandidates = ['section_id','section','class_id'];
+        $secCol = null; foreach ($secCandidates as $c) { if (isset($mcols[$c])) { $secCol = $c; break; } }
+        
+        if ($secCol !== null && $studentSectionId > 0) {
+            $stmt = $conn->prepare("
+                SELECT COUNT(*) AS c 
+                FROM materials m 
+                LEFT JOIN viewed_notifications vn ON vn.student_id = ? AND vn.notification_type = 'material' AND vn.notification_id = m.id
+                WHERE (m.`$secCol` IS NULL OR m.`$secCol` = ?) AND vn.id IS NULL
+            ");
+            if ($stmt) { 
+                $stmt->bind_param('ii', $studentId, $studentSectionId); 
+                $stmt->execute(); 
+                $rc = $stmt->get_result()->fetch_assoc(); 
+                $notificationCount += (int)($rc['c'] ?? 0); 
+            }
+        } else {
+            $stmt = $conn->prepare("
+                SELECT COUNT(*) AS c 
+                FROM materials m 
+                LEFT JOIN viewed_notifications vn ON vn.student_id = ? AND vn.notification_type = 'material' AND vn.notification_id = m.id
+                WHERE vn.id IS NULL
+            ");
+            if ($stmt) { 
+                $stmt->bind_param('i', $studentId); 
+                $stmt->execute(); 
+                $rc = $stmt->get_result()->fetch_assoc(); 
+                $notificationCount += (int)($rc['c'] ?? 0); 
+            }
+        }
     }
 } catch (Throwable $e) { /* ignore */ }
 ?>

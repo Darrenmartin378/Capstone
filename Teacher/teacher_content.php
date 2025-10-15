@@ -2353,7 +2353,7 @@ function initializeTinyMCE() {
         menubar: 'file edit view insert format tools table help',
         menu: {
             file: { title: 'File', items: 'newdocument restoredraft | preview | print | deleteallconversations' },
-            edit: { title: 'Edit', items: 'undo redo | cut copy paste pastetext | selectall | searchreplace' },
+            edit: { title: 'Edit', items: 'undo redo | cut copy paste pastetext | selectall | searchreplace | removeformat' },
             view: { title: 'View', items: 'code | visualaid visualchars visualblocks | preview fullscreen' },
             insert: { title: 'Insert', items: 'image link media codesample inserttable | charmap | pagebreak nonbreaking anchor | insertdatetime' },
             format: { title: 'Format', items: 'bold italic underline strikethrough superscript subscript codeformat | blocks align | forecolor backcolor | fontsize | removeformat' },
@@ -2530,6 +2530,29 @@ function initializeTinyMCE() {
         link_default_protocol: 'https',
         // Media features
         media_live_embeds: true,
+        // Undo/Redo configuration - prevent automatic clearing
+        undo_redo_levels: 50,
+        undo_redo_separator: '|',
+        undo_redo_shortcuts: true,
+        // Enhanced undo manager settings to prevent timeout
+        undo_manager: {
+            levels: 50,
+            timeout: 0, // No timeout for undo operations
+            ignore_shortcuts: false,
+            auto_clear: false, // Prevent automatic clearing of undo history
+            max_levels: 50
+        },
+        // Additional settings to maintain undo history
+        save_onsavecallback: function() {
+            // Prevent save from clearing undo history
+            return true;
+        },
+        // Enhanced paste configuration for better undo support (TinyMCE 6.0 compatible)
+        paste_merge_formats: true,
+        paste_auto_cleanup_on_paste: false,
+        paste_remove_styles_if_webkit: false,
+        // Ensure undo history is maintained during operations
+        save_enablewhendirty: true,
         media_url_resolver: function (data, resolve) {
             if (data.url.indexOf('youtube.com') !== -1 || data.url.indexOf('youtu.be') !== -1) {
                 // Convert YouTube URL to proper embed format
@@ -2549,44 +2572,118 @@ function initializeTinyMCE() {
         setup: function (editor) {
             editorInstance = editor;
             
+            // Initialize undo manager and ensure it's working properly
+            editor.on('init', function() {
+                // Ensure undo manager is properly initialized
+                if (editor.undoManager) {
+                    console.log('TinyMCE undo manager initialized successfully');
+                    
+                    // Test undo/redo functionality
+                    console.log('Undo manager has undo method:', typeof editor.undoManager.undo === 'function');
+                    console.log('Undo manager has redo method:', typeof editor.undoManager.redo === 'function');
+                    
+                    // Prevent undo manager from being cleared automatically
+                    const originalClear = editor.undoManager.clear;
+                    editor.undoManager.clear = function() {
+                        console.log('Undo manager clear called - preventing automatic clearing');
+                        // Don't clear the undo history automatically
+                        return false;
+                    };
+                    
+                    // Override the undo manager's add method to ensure it works properly
+                    const originalAdd = editor.undoManager.add;
+                    editor.undoManager.add = function() {
+                        console.log('Adding to undo history');
+                        return originalAdd.call(this);
+                    };
+                } else {
+                    console.warn('TinyMCE undo manager not available');
+                }
+            });
+            
             // Auto-save functionality
             editor.on('input', function () {
                 autoSave();
             });
             
-            // Handle drag and drop
+            // Handle drag and drop with undo support
             editor.on('drop', function(e) {
                 e.preventDefault();
                 const files = e.dataTransfer.files;
                 if (files && files.length > 0) {
                     const file = files[0];
                     if (file.type.startsWith('image/')) {
+                        // Insert image - TinyMCE will handle undo history automatically
                         const reader = new FileReader();
                         reader.onload = function() {
                             editor.insertContent('<img src="' + reader.result + '" style="max-width: 100%; height: auto;" />');
+                            console.log('Image dropped - TinyMCE managing undo history');
                         };
                         reader.readAsDataURL(file);
                     } else {
                         alert('Please drop an image file (JPG, PNG, GIF, WebP, etc.)');
-            }
-        }
-    });
+                    }
+                }
+            });
             
-            // Handle paste
+            // Handle paste with proper undo manager support
             editor.on('paste', function(e) {
                 const items = e.clipboardData.items;
+                let hasImage = false;
+                
+                // Check for images first
                 for (let i = 0; i < items.length; i++) {
                     const item = items[i];
                     if (item.type.startsWith('image/')) {
+                        hasImage = true;
                         e.preventDefault();
                         const file = item.getAsFile();
                         const reader = new FileReader();
                         reader.onload = function() {
+                            // Insert image - TinyMCE will handle undo history automatically
                             editor.insertContent('<img src="' + reader.result + '" style="max-width: 100%; height: auto;" />');
+                            console.log('Image pasted - TinyMCE managing undo history');
                         };
                         reader.readAsDataURL(file);
+                        break;
                     }
                 }
+                
+                // For text paste operations, let TinyMCE handle undo naturally
+                if (!hasImage) {
+                    // TinyMCE automatically handles undo history for text paste
+                    console.log('Text paste - TinyMCE managing undo history');
+                }
+            });
+            
+            // Handle paste preprocessing to ensure proper undo support
+            editor.on('BeforePaste', function(e) {
+                console.log('Before paste event - ensuring undo history support');
+                // This event fires before paste, ensuring undo manager is ready
+            });
+            
+            // Handle paste post-processing
+            editor.on('PastePostProcess', function(e) {
+                console.log('Paste post-process - content has been pasted');
+                // TinyMCE automatically handles undo history after paste
+            });
+            
+            // Handle content changes - let TinyMCE handle undo naturally
+            editor.on('change', function() {
+                // TinyMCE automatically handles undo history on change events
+                console.log('Content changed - TinyMCE managing undo history');
+            });
+            
+            // Handle node change events (minimal intervention)
+            editor.on('NodeChange', function(e) {
+                // Let TinyMCE handle undo management naturally
+                console.log('Node change detected');
+            });
+            
+            // Handle exec command events (minimal intervention)
+            editor.on('ExecCommand', function(e) {
+                console.log('Command executed:', e.command);
+                // Only log, let TinyMCE handle undo management
             });
             
             // Handle image resize
@@ -2602,6 +2699,25 @@ function initializeTinyMCE() {
             editor.on('SaveContent', function() {
                 editor.setDirty(false);
                 console.log('TinyMCE content saved, dirty state reset');
+                // Don't clear undo history on save
+            });
+            
+            // Prevent undo history from being cleared on various events
+            editor.on('BeforeSetContent', function() {
+                console.log('BeforeSetContent - preserving undo history');
+            });
+            
+            editor.on('SetContent', function() {
+                console.log('SetContent - preserving undo history');
+            });
+            
+            // Monitor undo manager state
+            editor.on('Undo', function() {
+                console.log('Undo executed successfully');
+            });
+            
+            editor.on('Redo', function() {
+                console.log('Redo executed successfully');
             });
             
             // Add custom image editing functionality
@@ -3124,6 +3240,18 @@ function formatText(command, value = null) {
     updateToolbarState();
 }
 
+// Clear formatting function for TinyMCE
+function clearFormatting() {
+    if (editorInstance && typeof editorInstance.execCommand === 'function') {
+        try {
+            editorInstance.execCommand('RemoveFormat');
+            console.log('Clear formatting executed');
+        } catch (error) {
+            console.error('Error executing clear formatting:', error);
+        }
+    }
+}
+
 // Update toolbar button states
 function updateToolbarState() {
     const buttons = document.querySelectorAll('.toolbar-btn');
@@ -3504,12 +3632,9 @@ function safeTinyMCEReset() {
                 editorInstance.setDirty(false);
             }
             
-            // Check if undoManager exists and has clear method
-            if (editorInstance.undoManager && typeof editorInstance.undoManager.clear === 'function') {
-                editorInstance.undoManager.clear();
-            }
-            
-            console.log('TinyMCE state reset successfully');
+            // DON'T clear undo manager - this was causing the timeout issue
+            // The undo history should persist even after auto-save
+            console.log('TinyMCE dirty state reset, undo history preserved');
             return true;
         } catch (error) {
             console.error('Error resetting TinyMCE state:', error);
@@ -3758,6 +3883,32 @@ document.addEventListener('keydown', function(e) {
             e.preventDefault();
             saveDocument();
         }
+        
+        // Ctrl+Z for undo
+        if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+            e.preventDefault();
+            if (editorInstance && editorInstance.undoManager && typeof editorInstance.undoManager.undo === 'function') {
+                try {
+                    editorInstance.undoManager.undo();
+                    console.log('Undo executed via keyboard shortcut');
+                } catch (error) {
+                    console.error('Error executing undo:', error);
+                }
+            }
+        }
+        
+        // Ctrl+Y or Ctrl+Shift+Z for redo
+        if ((e.ctrlKey && e.key === 'y') || (e.ctrlKey && e.key === 'z' && e.shiftKey)) {
+            e.preventDefault();
+            if (editorInstance && editorInstance.undoManager && typeof editorInstance.undoManager.redo === 'function') {
+                try {
+                    editorInstance.undoManager.redo();
+                    console.log('Redo executed via keyboard shortcut');
+                } catch (error) {
+                    console.error('Error executing redo:', error);
+                }
+            }
+        }
     }
     
     // Ctrl+B for bold
@@ -3776,6 +3927,19 @@ document.addEventListener('keydown', function(e) {
     if (e.ctrlKey && e.key === 'u') {
         e.preventDefault();
         formatText('underline');
+    }
+    
+    // Ctrl+Shift+N for clear formatting
+    if (e.ctrlKey && e.shiftKey && e.key === 'N') {
+        e.preventDefault();
+        if (editorInstance && typeof editorInstance.execCommand === 'function') {
+            try {
+                editorInstance.execCommand('RemoveFormat');
+                console.log('Clear formatting executed via keyboard shortcut');
+            } catch (error) {
+                console.error('Error executing clear formatting:', error);
+            }
+        }
     }
 });
 

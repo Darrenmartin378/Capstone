@@ -322,69 +322,171 @@ ob_start();
         }
         
         .question-sets {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 24px;
             margin-bottom: 24px;
-            justify-content: start;
-            justify-items: stretch;
-        }
-        @media (max-width: 640px) {
-            .page-shell { padding: 0 12px; }
-            .content-header { margin-bottom: 12px; }
-            .question-sets { grid-template-columns: 1fr; }
         }
         
-        .set-card {
-            position: relative;
+        .question-sets-table {
+            width: 100%;
             background: rgba(15, 23, 42, 0.85);
-            padding: 22px;
             border-radius: 16px;
+            overflow: hidden;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 
                         0 0 0 1px rgba(139, 92, 246, 0.2);
-            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
             border: 1px solid rgba(139, 92, 246, 0.3);
-            overflow: hidden;
             backdrop-filter: blur(12px);
         }
-        /* Cosmic glow effect */
-        .set-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.6), transparent);
-            pointer-events: none;
+        
+        .question-sets-table table {
+            width: 100%;
+            border-collapse: collapse;
+            color: #e1e5f2;
         }
         
-        .set-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 
-                        0 0 0 1px rgba(139, 92, 246, 0.4),
-                        0 0 20px rgba(139, 92, 246, 0.2);
-            border-color: rgba(139, 92, 246, 0.5);
-        }
-        
-        .set-title {
-            font-size: 22px;
-            font-weight: 800;
-            margin-bottom: 12px;
+        .question-sets-table th {
+            background: rgba(139, 92, 246, 0.2);
             color: #f1f5f9;
-            letter-spacing: .2px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            padding: 16px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+            border-bottom: 1px solid rgba(139, 92, 246, 0.3);
         }
         
-        .set-stats {
-            color: rgba(241, 245, 249, 0.8);
-            font-size: 14px;
-            margin-bottom: 15px;
+        .question-sets-table td {
+            padding: 16px 12px;
+            border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+            vertical-align: top;
         }
-        /* Inline meta with icons */
-        .set-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: rgba(241, 245, 249, 0.7); font-size: 14px; margin-bottom: 14px; }
-        .set-meta .meta { display: inline-flex; align-items: center; gap:6px; }
-        .set-meta .dot { opacity:.5; }
+        
+        .question-sets-table tr:hover {
+            background: rgba(139, 92, 246, 0.1);
+        }
+        
+        .question-sets-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .table-title {
+            font-weight: 700;
+            font-size: 16px;
+            color: #f1f5f9;
+            margin-bottom: 4px;
+        }
+        
+        .table-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: rgba(241, 245, 249, 0.7);
+        }
+        
+        .table-meta .meta-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .table-stats {
+            color: #16a34a;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .table-actions {
+            text-align: center;
+        }
+        
+        .table-actions .btn {
+            min-width: 100px;
+        }
+        
+        /* Improve table row hover effects */
+        .question-sets-table tr:hover {
+            background: rgba(139, 92, 246, 0.1);
+            transform: translateX(2px);
+            transition: all 0.2s ease;
+        }
+        
+        /* Better spacing for table cells */
+        .question-sets-table td:first-child {
+            width: 40%;
+        }
+        
+        .question-sets-table td:nth-child(2) {
+            width: 20%;
+        }
+        
+        .question-sets-table td:nth-child(3) {
+            width: 20%;
+        }
+        
+        .question-sets-table td:last-child {
+            width: 20%;
+        }
+        
+        @media (max-width: 768px) {
+            .page-shell { padding: 0 12px; }
+            .content-header { margin-bottom: 12px; }
+            
+            .question-sets-table {
+                overflow-x: auto;
+                border-radius: 12px;
+            }
+            
+            .question-sets-table table {
+                min-width: 600px;
+            }
+            
+            .question-sets-table th,
+            .question-sets-table td {
+                padding: 12px 8px;
+                font-size: 13px;
+            }
+            
+            .table-title {
+                font-size: 14px;
+            }
+            
+            .table-meta {
+                font-size: 11px;
+            }
+            
+            .table-actions .btn {
+                min-width: 80px;
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+            
+            /* Stack meta items vertically on very small screens */
+            .table-meta {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .question-sets-table table {
+                min-width: 500px;
+            }
+            
+            .question-sets-table th,
+            .question-sets-table td {
+                padding: 8px 6px;
+                font-size: 12px;
+            }
+            
+            .table-title {
+                font-size: 13px;
+            }
+            
+            .table-meta {
+                font-size: 10px;
+            }
+        }
+        
         
         .btn {
             background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(168, 85, 247, 0.8));
@@ -902,73 +1004,115 @@ ob_start();
             <h1><i class="fas fa-question-circle"></i> Available Question Sets</h1>
             <p style="margin-top:6px;color:rgba(241,245,249,.85)">Select a question set to start answering</p>
         </div>
-        <div class="question-sets" style="max-width:800px;">
+        <div class="question-sets">
             <?php if (empty($questionSets)): ?>
-                <div class="set-card" style="text-align: center; padding: 40px;">
-                    <h3>No Question Sets Available</h3>
+                <div class="question-sets-table">
+                    <div style="text-align: center; padding: 40px; color: #e1e5f2;">
+                        <h3>No Question Sets Available</h3>
+                    </div>
                 </div>
             <?php else: ?>
-                <?php foreach ($questionSets as $set): ?>
-                <?php 
-                    $openAt = $set['open_at'] ?? null; 
-                    $isLocked = false; 
-                    if (!empty($openAt)) { $isLocked = (strtotime($openAt) > time()); }
-                    $timer = (int)($set['timer_minutes'] ?? 0);
-                ?>
-                <div id="set-<?php echo (int)$set['id']; ?>" class="set-card" data-set-id="<?php echo (int)$set['id']; ?>" data-open-at="<?php echo htmlspecialchars($openAt ?? ''); ?>" data-open-ts="<?php echo $openAt ? (int)@strtotime($openAt) : 0; ?>" data-duration="<?php echo max(0,(int)$timer*60); ?>">
-                    <div class="set-title"><?php echo htmlspecialchars($set['set_title']); ?>
-                        <?php if($timer>0): ?><span class="badge timer"><?php echo $timer; ?> mins</span><?php endif; ?>
-                        <?php if($timer>0 && !empty($openAt) && strtotime($openAt) <= time()): ?>
-                            <span class="badge timer" data-time-left>Time left —</span>
-                        <?php endif; ?>
-                        <?php if(!empty($openAt)): ?>
-                            <span class="badge open">
-                                <?php if (!empty($set['already_submitted'])): ?>
-                                    Uploaded: <?php echo date('M j, Y g:ia'); ?>
-                                <?php else: ?>
-                                    Opens: <?php echo date('M j, Y g:ia', strtotime($openAt)); ?>
-                                <?php endif; ?>
-                            </span>
-                        <?php endif; ?>
-                        <?php 
-                            // Prefer set-level difficulty if present; fallback to legacy computed label
-                            $diff = strtolower(trim($set['difficulty'] ?? ($set['difficulty_label'] ?? '')));
-                            if ($diff) {
-                                $cls = ($diff==='easy')?'diff-easy':(($diff==='hard')?'diff-hard':(($diff==='medium')?'diff-medium':'diff-medium'));
-                                $label = $diff==='mixed' ? 'Mixed' : ucfirst($diff);
-                                echo '<span class="badge '.$cls.'">'.$label.'</span>';
-                            }
-                        ?>
-                    </div>
-                    <div class="set-meta">
-                        <span class="meta"><i class="fas fa-list-ol"></i> <?php echo $set['question_count']; ?> questions</span>
-                        <span class="dot">•</span>
-                        <span class="meta"><i class="fas fa-star"></i> <?php echo $set['total_points']; ?> points</span>
-                        <span class="dot">•</span>
-                        <span class="meta"><i class="fas fa-layer-group"></i> <?php echo htmlspecialchars($set['section_name']); ?></span>
-                    </div>
-                    <?php if (!empty($set['already_submitted'])): ?>
-                        <div class="set-stats" style="color:#16a34a; font-weight:600;">
-                            Your Score: <?php echo (float)($set['student_score'] ?? 0); ?> / <?php echo (float)($set['max_points'] ?? 0); ?>
-                        </div>
-                        <button class="btn" disabled>
-                            Submitted
-                        </button>
-                    <?php elseif($isLocked): ?>
-                        <button class="btn" disabled title="Opens on <?php echo date('M j, Y g:ia', strtotime($openAt)); ?>" data-set-id="<?php echo (int)$set['id']; ?>" data-title="<?php echo htmlspecialchars($set['set_title']); ?>" data-timer="<?php echo (int)$timer; ?>" data-duration="<?php echo max(0,(int)$timer*60); ?>" data-open-ts="<?php echo $openAt ? (int)@strtotime($openAt) : 0; ?>">
-                            <i class="fas fa-lock"></i> Locked
-                        </button>
-                        <div class="locked-info" data-open-at="<?php echo htmlspecialchars($openAt); ?>">
-                            <i class="fas fa-hourglass-half"></i>
-                            <span class="unlock-countdown">Opens in —</span>
-                        </div>
-                    <?php else: ?>
-                        <button class="btn" data-set-id="<?php echo (int)$set['id']; ?>" data-timer="<?php echo (int)$timer; ?>" data-open-at="<?php echo htmlspecialchars($openAt ?? ''); ?>" data-open-ts="<?php echo $openAt ? (int)@strtotime($openAt) : 0; ?>" data-duration="<?php echo max(0,(int)$timer*60); ?>" onclick="guardAndStart(this, <?php echo $set['id']; ?>, '<?php echo htmlspecialchars($set['set_title']); ?>')">
-                            <i class="fas fa-play"></i> Start 
-                        </button>
-                    <?php endif; ?>
+                <div class="question-sets-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Question Set</th>
+                                <th>Details</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($questionSets as $set): ?>
+                            <?php 
+                                $openAt = $set['open_at'] ?? null; 
+                                $isLocked = false; 
+                                if (!empty($openAt)) { $isLocked = (strtotime($openAt) > time()); }
+                                $timer = (int)($set['timer_minutes'] ?? 0);
+                            ?>
+                            <tr id="set-<?php echo (int)$set['id']; ?>" data-set-id="<?php echo (int)$set['id']; ?>" data-open-at="<?php echo htmlspecialchars($openAt ?? ''); ?>" data-open-ts="<?php echo $openAt ? (int)@strtotime($openAt) : 0; ?>" data-duration="<?php echo max(0,(int)$timer*60); ?>">
+                                <td>
+                                    <div class="table-title"><?php echo htmlspecialchars($set['set_title']); ?></div>
+                                    <div class="table-meta">
+                                        <span class="meta-item">
+                                            <i class="fas fa-list-ol"></i> <?php echo $set['question_count']; ?> questions
+                                        </span>
+                                        <span class="meta-item">
+                                            <i class="fas fa-star"></i> <?php echo $set['total_points']; ?> points
+                                        </span>
+                                        <span class="meta-item">
+                                            <i class="fas fa-layer-group"></i> <?php echo htmlspecialchars($set['section_name']); ?>
+                                        </span>
+                                    </div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
+                                        <?php if($timer>0): ?><span class="badge timer"><?php echo $timer; ?> mins</span><?php endif; ?>
+                                        <?php if($timer>0 && !empty($openAt) && strtotime($openAt) <= time()): ?>
+                                            <span class="badge timer" data-time-left>Time left —</span>
+                                        <?php endif; ?>
+                                        <?php if(!empty($openAt)): ?>
+                                            <span class="badge open">
+                                                <?php if (!empty($set['already_submitted'])): ?>
+                                                    Uploaded: <?php echo date('M j, Y g:ia'); ?>
+                                                <?php else: ?>
+                                                    Opens: <?php echo date('M j, Y g:ia', strtotime($openAt)); ?>
+                                                <?php endif; ?>
+                                            </span>
+                                        <?php endif; ?>
+                                        <?php 
+                                            // Prefer set-level difficulty if present; fallback to legacy computed label
+                                            $diff = strtolower(trim($set['difficulty'] ?? ($set['difficulty_label'] ?? '')));
+                                            if ($diff) {
+                                                $cls = ($diff==='easy')?'diff-easy':(($diff==='hard')?'diff-hard':(($diff==='medium')?'diff-medium':'diff-medium'));
+                                                $label = $diff==='mixed' ? 'Mixed' : ucfirst($diff);
+                                                echo '<span class="badge '.$cls.'">'.$label.'</span>';
+                                            }
+                                        ?>
+                                    </div>
+                                </td>
+                                <td>
+                                    <?php if (!empty($set['already_submitted'])): ?>
+                                        <div class="table-stats">
+                                            Your Score: <?php echo (float)($set['student_score'] ?? 0); ?> / <?php echo (float)($set['max_points'] ?? 0); ?>
+                                        </div>
+                                    <?php else: ?>
+                                        <div style="color: rgba(241, 245, 249, 0.7); font-size: 14px;">
+                                            Ready to start
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if (!empty($set['already_submitted'])): ?>
+                                        <span style="color: #16a34a; font-weight: 600;">Submitted</span>
+                                    <?php elseif($isLocked): ?>
+                                        <span style="color: #f59e0b; font-weight: 600;">Locked</span>
+                                        <div class="locked-info" data-open-at="<?php echo htmlspecialchars($openAt); ?>" style="margin-top: 4px;">
+                                            <i class="fas fa-hourglass-half"></i>
+                                            <span class="unlock-countdown">Opens in —</span>
+                                        </div>
+                                    <?php else: ?>
+                                        <span style="color: #10b981; font-weight: 600;">Available</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="table-actions">
+                                    <?php if (!empty($set['already_submitted'])): ?>
+                                        <button class="btn" disabled>
+                                            Submitted
+                                        </button>
+                                    <?php elseif($isLocked): ?>
+                                        <button class="btn" disabled title="Opens on <?php echo date('M j, Y g:ia', strtotime($openAt)); ?>" data-set-id="<?php echo (int)$set['id']; ?>" data-title="<?php echo htmlspecialchars($set['set_title']); ?>" data-timer="<?php echo (int)$timer; ?>" data-duration="<?php echo max(0,(int)$timer*60); ?>" data-open-ts="<?php echo $openAt ? (int)@strtotime($openAt) : 0; ?>">
+                                            <i class="fas fa-lock"></i> Locked
+                                        </button>
+                                    <?php else: ?>
+                                        <button class="btn" data-set-id="<?php echo (int)$set['id']; ?>" data-timer="<?php echo (int)$timer; ?>" data-open-at="<?php echo htmlspecialchars($openAt ?? ''); ?>" data-open-ts="<?php echo $openAt ? (int)@strtotime($openAt) : 0; ?>" data-duration="<?php echo max(0,(int)$timer*60); ?>" onclick="guardAndStart(this, <?php echo $set['id']; ?>, '<?php echo htmlspecialchars($set['set_title']); ?>')">
+                                            <i class="fas fa-play"></i> Start 
+                                        </button>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
-                <?php endforeach; ?>
             <?php endif; ?>
         </div>
         </div>
@@ -979,7 +1123,7 @@ ob_start();
             <h2 id="formTitle" style="color: Black;"></h2>
                 <div class="quiz-progress" id="quizProgress">
                     <div class="progress-meta">
-                        <span id="progressLabel">Question 1</span>
+                        <span id="progressLabel"></span>
                         <span id="progressCount">0 / 0</span>
                     </div>
                     <div class="bar"><div class="bar-fill" id="progressFill"></div></div>
@@ -1034,7 +1178,7 @@ ob_start();
             form.style.display = 'block';
             const td = document.getElementById('timerDisplay');
             if (td) td.style.display = 'inline-block';
-            // Hide header and cards for distraction-free quiz
+            // Hide header and table for distraction-free quiz
             const header = document.querySelector('.content-header');
             const sets = document.querySelector('.question-sets');
             if (header) header.style.display = 'none';
@@ -1231,12 +1375,19 @@ ob_start();
                     try {
                         leftItems = JSON.parse(question.left_items || '[]');
                         rightItems = JSON.parse(question.right_items || '[]');
-                        correctPairs = JSON.parse(question.correct_pairs || '{}');
+                        correctPairs = JSON.parse(question.correct_pairs || '[]');
+                        
+                        // Debug logging
+                        console.log('Matching question data:', {
+                            leftItems: leftItems,
+                            rightItems: rightItems,
+                            correctPairs: correctPairs
+                        });
                     } catch (e) {
                         console.error('JSON Parse Error:', e);
                         leftItems = [];
                         rightItems = [];
-                        correctPairs = {};
+                        correctPairs = [];
                     }
                     
                     return `
@@ -1264,7 +1415,8 @@ ob_start();
                                     ${leftItems.map((item, itemIndex) => `
                                         <div class="drop-zone" 
                                              data-pair-index="${itemIndex}"
-                                             data-correct="${(correctPairs && correctPairs[itemIndex]) ? correctPairs[itemIndex] : ''}"
+                                             data-correct-index="${(correctPairs && correctPairs[itemIndex]) ? correctPairs[itemIndex] : ''}"
+                                             data-correct-text="${(correctPairs && correctPairs[itemIndex] !== undefined && rightItems[correctPairs[itemIndex]]) ? rightItems[correctPairs[itemIndex]] : ''}"
                                              data-question-id="${question.id}"
                                              id="drop_${question.id}_${itemIndex}"
                                              ondrop="drop(event)" 
@@ -1328,14 +1480,26 @@ ob_start();
             // Get question ID and pair index
             const questionId = dropZone.dataset.questionId;
             const pairIndex = dropZone.dataset.pairIndex;
-            const correctAnswer = dropZone.dataset.correct;
+            const correctIndex = dropZone.dataset.correctIndex;
+            const correctText = dropZone.dataset.correctText;
             
             // Get the dragged item's data
             const draggedText = draggedElement.querySelector('.drag-text').textContent;
             const draggedNumber = draggedElement.querySelector('.drag-number').textContent;
+            const draggedIndex = draggedElement.dataset.answerIndex;
             
-            // Check if this is the correct match
-            const isCorrect = draggedText === correctAnswer;
+            // Check if this is the correct match (compare indices)
+            const isCorrect = draggedIndex === correctIndex;
+            
+            // Debug logging
+            console.log('Drop comparison:', {
+                draggedText: draggedText,
+                draggedIndex: draggedIndex,
+                correctIndex: correctIndex,
+                correctText: correctText,
+                isCorrect: isCorrect,
+                pairIndex: pairIndex
+            });
             
             // Update drop zone
             const placeholder = dropZone.querySelector('.drop-placeholder');
@@ -1354,8 +1518,8 @@ ob_start();
                 if (prevDrag) prevDrag.style.display = '';
             }
 
-            // Store the answer and reference to original draggable element
-            dropZone.dataset.answer = draggedText;
+            // Store the answer index and reference to original draggable element
+            dropZone.dataset.answer = draggedIndex;
             dropZone.dataset.dragId = data;
             dropZone.classList.add('has-answer');
             
@@ -1406,7 +1570,7 @@ ob_start();
             
             dropZones.forEach(zone => {
                 const answer = zone.dataset.answer;
-                const correct = zone.dataset.correct;
+                const correct = zone.dataset.correctIndex;
                 if (answer && answer === correct) {
                     correctCount++;
                 }
@@ -1463,13 +1627,31 @@ ob_start();
             const question = currentQuestions[currentIndex];
             if (!question) return;
                 if (question.type === 'matching') {
-                    const matchingResponses = {};
+                    const matchingResponses = [];
                     const dropZones = document.querySelectorAll(`[data-question-id="${question.id}"].drop-zone`);
-                    dropZones.forEach(zone => {
-                        const pairIndex = zone.dataset.pairIndex;
-                        const answer = zone.dataset.answer || '';
-                        matchingResponses[pairIndex] = answer;
+                    
+                    // Sort drop zones by pair index to ensure correct order
+                    const sortedZones = Array.from(dropZones).sort((a, b) => {
+                        return parseInt(a.dataset.pairIndex) - parseInt(b.dataset.pairIndex);
                     });
+                    
+                    sortedZones.forEach(zone => {
+                        // Get the index of the dropped item, not the text
+                        const droppedItem = zone.querySelector('.dropped-item');
+                        let answerIndex = '';
+                        if (droppedItem && droppedItem.style.display !== 'none') {
+                            // Find the original draggable element to get its index
+                            const dragId = zone.dataset.dragId;
+                            if (dragId) {
+                                const dragElement = document.getElementById(dragId);
+                                if (dragElement) {
+                                    answerIndex = dragElement.dataset.answerIndex || '';
+                                }
+                            }
+                        }
+                        matchingResponses.push(answerIndex);
+                    });
+                    
                     // Debug logging
                     console.log('Collecting matching responses for question', question.id, ':', matchingResponses);
                 studentResponses[question.id] = matchingResponses;
@@ -1567,7 +1749,7 @@ ob_start();
             shell.style.display = 'none';
             if (form) form.style.display = 'none';
             document.body.style.overflow = '';
-            // Restore header and cards when quiz closes
+            // Restore header and table when quiz closes
             const header = document.querySelector('.content-header');
             const sets = document.querySelector('.question-sets');
             if (header) header.style.display = '';
@@ -1630,9 +1812,9 @@ ob_start();
                     if (now >= target) {
                         clearInterval(itv);
                         // Swap locked button to Start Quiz
-                        const card = el.closest('.set-card');
-                        if (card) {
-                            const lockedBtn = card.querySelector('button[disabled][data-set-id]');
+                        const row = el.closest('tr');
+                        if (row) {
+                            const lockedBtn = row.querySelector('button[disabled][data-set-id]');
                             if (lockedBtn) {
                                 const setId = parseInt(lockedBtn.getAttribute('data-set-id'));
                                 const setTitle = lockedBtn.getAttribute('data-title') || 'Question Set';
@@ -1653,15 +1835,15 @@ ob_start();
         }
 
         function applyClientLocks(){
-            const cards = document.querySelectorAll('.set-card');
-            cards.forEach(card => {
-                const openAtStr = card.getAttribute('data-open-at') || '';
+            const rows = document.querySelectorAll('tr[data-set-id]');
+            rows.forEach(row => {
+                const openAtStr = row.getAttribute('data-open-at') || '';
                 if (!openAtStr) return;
                 const target = new Date(openAtStr.replace(' ', 'T'));
                 if (isNaN(target.getTime())) return;
                 if (new Date() < target){
                     // Find Start button and replace with Locked if not already
-                    const btn = card.querySelector('.btn[data-open-at]');
+                    const btn = row.querySelector('.btn[data-open-at]');
                     if (btn && !btn.disabled){
                         const locked = document.createElement('button');
                         locked.className = 'btn';
@@ -1670,12 +1852,16 @@ ob_start();
                         locked.innerHTML = '<i class="fas fa-lock"></i> Locked';
                         btn.replaceWith(locked);
                         // Add countdown chip if not present
-                        if (!card.querySelector('.locked-info')){
+                        if (!row.querySelector('.locked-info')){
                             const chip = document.createElement('div');
                             chip.className = 'locked-info';
                             chip.setAttribute('data-open-at', openAtStr);
                             chip.innerHTML = '<i class="fas fa-hourglass-half"></i> <span class="unlock-countdown">Opens in —</span>';
-                            card.appendChild(chip);
+                            // Add to the status cell
+                            const statusCell = row.querySelector('td:nth-child(3)');
+                            if (statusCell) {
+                                statusCell.appendChild(chip);
+                            }
                         }
                     }
                 }
@@ -1685,15 +1871,15 @@ ob_start();
         }
 
         function bindStartButtons(){
-            const starts = document.querySelectorAll('.set-card .btn[data-open-at]');
+            const starts = document.querySelectorAll('tr[data-set-id] .btn[data-open-at]');
             starts.forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     const openAt = btn.getAttribute('data-open-at') || '';
                     const timer = btn.getAttribute('data-timer') || '0';
-                    const card = btn.closest('.set-card');
-                    const title = (card && card.querySelector('.set-title')) ? card.querySelector('.set-title').textContent.trim() : 'Question Set';
+                    const row = btn.closest('tr[data-set-id]');
+                    const title = (row && row.querySelector('.table-title')) ? row.querySelector('.table-title').textContent.trim() : 'Question Set';
                     const idMatch = btn.getAttribute('onclick');
                     // If onclick was already replaced, we still route through guard
                     guardAndStart(btn, parseInt(btn.getAttribute('data-set-id') || '0') || extractId(idMatch), title);
@@ -1715,11 +1901,11 @@ ob_start();
 
         // Header timers: continue counting down even before quiz starts
         function initHeaderTimers(){
-            const cards = document.querySelectorAll('.set-card');
-            cards.forEach(card => {
-                const openTs = parseInt(card.getAttribute('data-open-ts') || '0');
-                const duration = parseInt(card.getAttribute('data-duration') || '0');
-                const badge = card.querySelector('[data-time-left]');
+            const rows = document.querySelectorAll('tr[data-set-id]');
+            rows.forEach(row => {
+                const openTs = parseInt(row.getAttribute('data-open-ts') || '0');
+                const duration = parseInt(row.getAttribute('data-duration') || '0');
+                const badge = row.querySelector('[data-time-left]');
                 if (!badge || !duration) return;
                 const tick = () => {
                     const now = Math.floor(Date.now()/1000);
@@ -1876,20 +2062,29 @@ ob_start();
             const sets = document.querySelector('.question-sets');
             if (header) header.style.display = '';
             if (sets) sets.style.display = '';
-            // Update card with score
+            // Update table row with score
             if (window.currentQuestionSetId && window.lastScoreData){
-                const card = document.querySelector(`.set-card[data-set-id="${window.currentQuestionSetId}"]`);
-                if (card){
-                    let stats = card.querySelector('.set-stats');
-                    if (!stats){
-                        stats = document.createElement('div');
-                        stats.className = 'set-stats';
-                        card.insertBefore(stats, card.querySelector('button'));
+                const row = document.querySelector(`tr[data-set-id="${window.currentQuestionSetId}"]`);
+                if (row){
+                    // Update the details cell with score
+                    const detailsCell = row.querySelector('td:nth-child(2)');
+                    if (detailsCell) {
+                        detailsCell.innerHTML = `<div class="table-stats">Your Score: ${window.lastScoreData.total_score || 0} / ${window.lastScoreData.max_points || 0}</div>`;
                     }
-                    stats.textContent = `Your Score: ${window.lastScoreData.total_score || 0} / ${window.lastScoreData.max_points || 0}`;
-                    stats.style.cssText = 'color:#16a34a; font-weight:600;';
-                    const startBtn = card.querySelector('button');
-                    if (startBtn){ startBtn.disabled = true; startBtn.textContent = 'Completed'; }
+                    // Update status
+                    const statusCell = row.querySelector('td:nth-child(3)');
+                    if (statusCell) {
+                        statusCell.innerHTML = '<span style="color: #16a34a; font-weight: 600;">Submitted</span>';
+                    }
+                    // Update action button
+                    const actionCell = row.querySelector('td:nth-child(4)');
+                    if (actionCell) {
+                        const btn = actionCell.querySelector('button');
+                        if (btn) {
+                            btn.disabled = true;
+                            btn.textContent = 'Submitted';
+                        }
+                    }
                 }
             }
             // Hide quiz form
