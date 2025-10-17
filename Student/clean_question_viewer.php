@@ -1266,7 +1266,7 @@ ob_start();
         function updateProgress() {
             const total = currentQuestions.length;
             const idx = Math.min(currentIndex + 1, total);
-            document.getElementById('progressLabel').textContent = `Question ${idx}`;
+            document.getElementById('progressLabel').textContent = '';
             document.getElementById('progressCount').textContent = `${idx - 1}/${total}`;
             const fill = document.getElementById('progressFill');
             const pct = total > 0 ? ((idx - 1) / total) * 100 : 0;
