@@ -157,8 +157,8 @@ try {
         
         body { 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            color: #e1e5f2;
-            background: #0a0a0f;
+            color: #1e293b;
+            background: #f8fafc;
             display: flex;
             min-height: 100vh;
             line-height: 1.6;
@@ -168,52 +168,13 @@ try {
             overflow-x: hidden;
         }
 
-        /* Galaxy Video Background */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: url('../assets/images/3194277-hd_1920_1080_30fps.mp4') center/cover;
-            z-index: -2;
-            pointer-events: none;
-        }
-
-        .galaxy-video {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: -2;
-            pointer-events: none;
-        }
-
-        /* Galaxy overlay */
-        body::after {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(ellipse at top, rgba(139, 92, 246, 0.15) 0%, rgba(0, 0, 0, 0.8) 70%),
-                        radial-gradient(ellipse at bottom right, rgba(34, 211, 238, 0.1) 0%, transparent 50%),
-                        radial-gradient(ellipse at bottom left, rgba(168, 85, 247, 0.08) 0%, transparent 50%);
-            z-index: -1;
-            pointer-events: none;
-        }
-
-        /* Sidebar - Galaxy Theme */
+        /* Sidebar - Light Blue Theme */
         .sidebar {
             width: 256px;
-            background: rgba(15, 23, 42, 0.95);
-            color: #e1e5f2;
+            background: #2563eb;
+            color: #ffffff;
             padding: 0;
-            box-shadow: 0 0 40px rgba(139, 92, 246, 0.2);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             position: fixed;
             top: 0;
             left: 0;
@@ -221,8 +182,7 @@ try {
             overflow-y: auto;
             z-index: 1000;
             transition: all 0.3s ease;
-            border-right: 1px solid rgba(139, 92, 246, 0.3);
-            backdrop-filter: blur(20px);
+            border-right: 1px solid #1d4ed8;
         }
 
         /* Sidebar collapsed state - icon only */
@@ -252,17 +212,16 @@ try {
 
         .sidebar-header {
             padding: 16px 24px;
-            border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+            border-bottom: 1px solid #1d4ed8;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.3s ease;
             position: relative;
-            background: rgba(15, 23, 42, 0.9);
+            background: #1d4ed8;
             z-index: 1002;
             margin-top: 64px;
             min-height: 64px;
-            backdrop-filter: blur(12px);
         }
 
 
@@ -314,7 +273,7 @@ try {
             align-items: center;
             gap: 12px;
             text-decoration: none;
-            color: #f1f5f9;
+            color: #ffffff;
             z-index: 1003;
             position: relative;
         }
@@ -325,16 +284,15 @@ try {
             border-radius: 8px;
             object-fit: cover;
             display: block;
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow-sm);
+            border: 1px solid #ffffff;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
         }
 
         .sidebar-logo-text {
             font-size: 18px;
             font-weight: 600;
             margin: 0;
-            color: #f1f5f9;
-            text-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+            color: #ffffff;
         }
 
         .sidebar-logo .icon {
@@ -386,10 +344,10 @@ try {
             align-items: center;
             gap: 16px;
             padding: 12px 24px;
-            color: rgba(241, 245, 249, 0.7);
+            color: rgba(255, 255, 255, 0.8);
             text-decoration: none;
             transition: all 0.3s ease;
-            border-radius: 12px;
+            border-radius: 8px;
             margin: 4px 16px;
             font-weight: 500;
             font-size: 15px;
@@ -400,35 +358,30 @@ try {
 
 
         .sidebar-nav a:hover {
-            background: rgba(139, 92, 246, 0.15);
-            color: #f1f5f9;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
             transform: translateX(4px);
-            box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
-            border-color: rgba(139, 92, 246, 0.4);
         }
 
         .sidebar-nav a.active {
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(168, 85, 247, 0.8));
+            background: rgba(255, 255, 255, 0.2);
             color: #ffffff;
             font-weight: 600;
-            box-shadow: 0 0 25px rgba(139, 92, 246, 0.5);
-            border-color: rgba(139, 92, 246, 0.6);
         }
 
         .sidebar-nav .icon {
             font-size: 20px;
             width: 24px;
             text-align: center;
-            color: rgba(241, 245, 249, 0.6);
+            color: rgba(255, 255, 255, 0.7);
         }
 
         .sidebar-nav a.active .icon {
             color: #ffffff;
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
         }
 
         .sidebar-nav a:hover .icon {
-            color: #f1f5f9;
+            color: #ffffff;
         }
 
         /* Main Content */
@@ -437,7 +390,7 @@ try {
             display: flex;
             flex-direction: column;
             transition: all 0.3s ease;
-            background: transparent;
+            background: #f8fafc;
             margin-left: 256px;
         }
 
@@ -445,10 +398,10 @@ try {
             margin-left: 72px;
         }
 
-        /* Header - Galaxy Theme */
+        /* Header - Light Blue Theme */
         .header {
-            background: rgba(15, 23, 42, 0.95);
-            border-bottom: 1px solid rgba(139, 92, 246, 0.3);
+            background: #2563eb;
+            border-bottom: 1px solid #1d4ed8;
             padding: 8px 16px;
             display: flex;
             justify-content: space-between;
@@ -458,10 +411,9 @@ try {
             left: 0;
             right: 0;
             z-index: 1001;
-            color: #e1e5f2;
-            box-shadow: 0 0 30px rgba(139, 92, 246, 0.2);
+            color: #ffffff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             height: 70px;
-            backdrop-filter: blur(20px);
         }
 
         /* Force header elements to be positioned right after menu button */
@@ -489,11 +441,11 @@ try {
 
         /* Clean Menu Button */
         .menu-button {
-            background: rgba(15, 23, 42, 0.8);
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            color: #e1e5f2;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
             padding: 8px;
-            border-radius: 12px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
             font-size: 20px;
@@ -503,15 +455,12 @@ try {
             align-items: center;
             justify-content: center;
             margin-right: 12px;
-            box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
-            backdrop-filter: blur(10px);
         }
 
         .menu-button:hover {
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(168, 85, 247, 0.8));
+            background: rgba(255, 255, 255, 0.2);
             color: #ffffff;
             transform: scale(1.05);
-            box-shadow: 0 0 25px rgba(139, 92, 246, 0.5);
         }
 
         .menu-button:active {
@@ -532,9 +481,8 @@ try {
             display: flex;
             align-items: center;
             gap: 8px;
-            color: #f1f5f9;
+            color: #ffffff;
             white-space: nowrap;
-            text-shadow: 0 0 15px rgba(139, 92, 246, 0.5);
         }
 
         .section-info {
@@ -543,15 +491,14 @@ try {
         }
 
         .section-badge {
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(168, 85, 247, 0.8));
+            background: rgba(255, 255, 255, 0.2);
             color: #ffffff;
             padding: 6px 12px;
             border-radius: 16px;
             font-size: 12px;
             font-weight: 600;
-            border: 1px solid rgba(139, 92, 246, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             white-space: nowrap;
-            box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
             margin-left: 4px;
         }
 
@@ -566,24 +513,22 @@ try {
         }
 
         .chip {
-            background: rgba(15, 23, 42, 0.8);
-            color: #e1e5f2;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
             padding: 8px 16px;
             border-radius: 20px;
             font-size: 14px;
             font-weight: 500;
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
-            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .notification-icon {
             position: relative;
-            background: rgba(15, 23, 42, 0.8);
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            color: #e1e5f2;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
             padding: 8px;
-            border-radius: 12px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
             font-size: 20px;
@@ -592,15 +537,12 @@ try {
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
-            backdrop-filter: blur(10px);
         }
 
         .notification-icon:hover {
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(168, 85, 247, 0.8));
+            background: rgba(255, 255, 255, 0.2);
             color: #ffffff;
             transform: scale(1.05);
-            box-shadow: 0 0 25px rgba(139, 92, 246, 0.5);
         }
 
         .notification-badge {
@@ -623,20 +565,18 @@ try {
         .logout {
             text-decoration: none;
             padding: 10px 18px;
-            background: linear-gradient(135deg, #ef4444, #dc2626);
+            background: #ef4444;
             color: #ffffff;
-            border-radius: 12px;
+            border-radius: 8px;
             transition: all 0.3s ease;
             font-weight: 600;
             font-size: 14px;
-            border: 1px solid rgba(239, 68, 68, 0.5);
-            box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+            border: 1px solid #dc2626;
         }
 
         .logout:hover {
-            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            background: #dc2626;
             transform: scale(1.05);
-            box-shadow: 0 0 30px rgba(239, 68, 68, 0.5);
         }
 
         /* Content Area */
@@ -646,8 +586,11 @@ try {
             max-width: 1200px;
             margin: 0 auto;
             width: 100%;
-            background: transparent;
+            background: #ffffff;
             margin-top: 80px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            color: #1e293b;
         }
 
         /* Clean Scrollbar */
@@ -756,10 +699,6 @@ try {
     </style>
 </head>
 <body>
-    <!-- Galaxy Video Background -->
-    <video class="galaxy-video" autoplay muted loop>
-        <source src="../assets/images/3194277-hd_1920_1080_30fps.mp4" type="video/mp4">
-    </video>
 
     <!-- Sidebar Backdrop for Mobile -->
     <div class="sidebar-backdrop" id="sidebarBackdrop"></div>

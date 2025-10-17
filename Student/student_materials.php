@@ -9,8 +9,8 @@ ob_start();
 <style>
     /* Header similar to questions page */
     .materials-header { margin-bottom: 12px; }
-    .materials-header h1 { color:#f1f5f9; font-weight:900; margin:0 0 6px 0; }
-    .materials-header p { margin:0; color: rgba(241,245,249,.85); }
+    .materials-header h1 { font-weight:900; color: #1e293b; text-shadow: none;}
+    .materials-header p { margin:0; color: rgba(0, 0, 0, 0.85); }
 
     /* Grid like question cards */
     .materials-grid { 
@@ -25,39 +25,37 @@ ob_start();
 
     .material-card {
         position: relative;
-        background: rgba(15, 23, 42, 0.85);
+        background: #ffffff;
         padding: 22px;
         border-radius: 16px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(139, 92, 246, 0.2);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-        border: 1px solid rgba(139, 92, 246, 0.3);
+        border: 1px solid #e2e8f0;
         overflow: hidden;
-        backdrop-filter: blur(12px);
     }
     .material-card:hover {
-        transform: translateY(-6px);
-        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(139, 92, 246, 0.4), 0 0 20px rgba(139, 92, 246, 0.2);
-        border-color: rgba(139, 92, 246, 0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        border-color: #2563eb;
     }
-    .material-title { font-size: 20px; font-weight: 800; color:#f1f5f9; margin:0 0 8px 0; }
-    .material-meta { font-size:13px; color:#9aa4b2; margin-bottom:12px; }
+    .material-title { font-size: 20px; font-weight: 800; color: #1e293b; margin:0 0 8px 0; }
+    .material-meta { font-size:13px; color: #64748b; margin-bottom:12px; }
     .material-actions { margin-top: 14px; }
 
-    .muted { color: rgba(241, 245, 249, 0.6); font-size: 13px; }
+    .muted { color: #64748b; font-size: 13px; }
     .btn {
-        border: 1px solid rgba(139, 92, 246, 0.5);
+        border: 1px solid #1d4ed8;
         padding: 10px 14px;
-        border-radius: 12px;
+        border-radius: 8px;
         cursor: pointer;
         color: #fff;
         font-weight: 700;
-        box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
         text-decoration: none;
-        backdrop-filter: blur(10px);
         display: inline-block;
     }
-    .btn-primary { background: linear-gradient(180deg, var(--primary), #5fb4ff); }
-    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(30,144,255,.25); }
+    .btn-primary { background: #2563eb; }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
 </style>
 
 <div class="materials-header">

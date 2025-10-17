@@ -105,16 +105,16 @@ ob_start();
 <style>
 .shell{max-width:1240px;margin:0 auto;padding:20px}
 .practice-header{margin-bottom:12px}
-.practice-header h1{color:#f1f5f9;font-weight:900;margin:0 0 6px 0}
-.practice-header p{margin:0;color:rgba(241,245,249,.85)}
+.practice-header h1{color:#1e293b;font-weight:900;margin:0 0 6px 0}
+.practice-header p{margin:0;color:#64748b}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;justify-content:start;justify-items:stretch}
 @media (max-width:900px){.grid{grid-template-columns:1fr}}
-.card{position:relative;background:rgba(15,23,42,.85);padding:22px;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.4),0 0 0 1px rgba(139,92,246,.2);transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;border:1px solid rgba(139,92,246,.3);overflow:hidden;backdrop-filter:blur(12px)}
-.card:hover{transform:translateY(-6px);box-shadow:0 16px 40px rgba(0,0,0,.6),0 0 0 1px rgba(139,92,246,.4),0 0 20px rgba(139,92,246,.2);border-color:rgba(139,92,246,.5)}
-.title{font-weight:800;color:#f1f5f9;margin-bottom:8px;font-size:20px}
-.meta{color:#9aa4b2;font-size:12px;margin-bottom:12px}
-.btn{background:linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(168, 85, 247, 0.8));color:#fff;border:1px solid rgba(139, 92, 246, 0.5);border-radius:9999px;padding:10px 16px;font-weight:800;cursor:pointer;backdrop-filter:blur(10px);box-shadow:0 0 15px rgba(139, 92, 246, 0.3)}
-.empty{padding:40px;text-align:center;border-radius:12px;border:1px dashed rgba(139, 92, 246, 0.3);background:rgba(15, 23, 42, 0.6);color:rgba(241, 245, 249, 0.7);backdrop-filter:blur(8px)}
+.card{position:relative;background:#ffffff;padding:22px;border-radius:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,.1);transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;border:1px solid #e2e8f0;overflow:hidden}
+.card:hover{transform:translateY(-2px);box-shadow:0 10px 15px -3px rgba(0,0,0,.1);border-color:#2563eb}
+.title{font-weight:800;color:#1e293b;margin-bottom:8px;font-size:20px}
+.meta{color:#64748b;font-size:12px;margin-bottom:12px}
+.btn{background:#2563eb;color:#fff;border:1px solid #1d4ed8;border-radius:8px;padding:10px 16px;font-weight:800;cursor:pointer;box-shadow:0 1px 3px 0 rgba(0,0,0,.1)}
+.empty{padding:40px;text-align:center;border-radius:12px;border:1px dashed #cbd5e1;background:#f8fafc;color:#64748b;}
 </style>
 <div class="shell">
     <div class="practice-header">

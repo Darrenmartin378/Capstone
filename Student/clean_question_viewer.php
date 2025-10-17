@@ -282,7 +282,7 @@ ob_start();
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #0a0a0f;
-            color: #e1e5f2;
+            color: #1e293b;
             min-height: 100vh;
             position: relative;
             overflow-x: hidden;
@@ -296,9 +296,6 @@ ob_start();
             left: 0;
             width: 100%;
             height: 100%;
-            background: radial-gradient(ellipse at top, rgba(139, 92, 246, 0.15) 0%, rgba(0, 0, 0, 0.8) 70%),
-                        radial-gradient(ellipse at bottom right, rgba(34, 211, 238, 0.1) 0%, transparent 50%),
-                        radial-gradient(ellipse at bottom left, rgba(168, 85, 247, 0.08) 0%, transparent 50%);
             z-index: -1;
             pointer-events: none;
         }
@@ -314,11 +311,21 @@ ob_start();
         .main-content { padding: 20px; min-height: 100vh; }
         
         .header {
-            background: rgba(15, 23, 42, 0.95);
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            background: #2563eb;
+            border-bottom: 1px solid #1d4ed8;
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1001;
+            color: #ffffff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            height: 70px;
+
         }
         
         .question-sets {
@@ -327,39 +334,37 @@ ob_start();
         
         .question-sets-table {
             width: 100%;
-            background: rgba(15, 23, 42, 0.85);
+            background: #ffffff;
             border-radius: 16px;
             overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 
-                        0 0 0 1px rgba(139, 92, 246, 0.2);
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            backdrop-filter: blur(12px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
         }
         
         .question-sets-table table {
             width: 100%;
             border-collapse: collapse;
-            color: #e1e5f2;
+            color: #1e293b;
         }
         
         .question-sets-table th {
-            background: rgba(139, 92, 246, 0.2);
-            color: #f1f5f9;
+            background: #f8fafc;
+            color: #1e293b;
             padding: 16px 12px;
             text-align: left;
             font-weight: 600;
             font-size: 14px;
-            border-bottom: 1px solid rgba(139, 92, 246, 0.3);
+            border-bottom: 1px solid #e2e8f0;
         }
         
         .question-sets-table td {
             padding: 16px 12px;
-            border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+            border-bottom: 1px solid #e2e8f0;
             vertical-align: top;
         }
         
         .question-sets-table tr:hover {
-            background: rgba(139, 92, 246, 0.1);
+            background: #f8fafc;
         }
         
         .question-sets-table tr:last-child td {
@@ -369,7 +374,7 @@ ob_start();
         .table-title {
             font-weight: 700;
             font-size: 16px;
-            color: #f1f5f9;
+            color: #1e293b;
             margin-bottom: 4px;
         }
         
@@ -379,7 +384,7 @@ ob_start();
             gap: 8px;
             margin-bottom: 8px;
             font-size: 12px;
-            color: rgba(241, 245, 249, 0.7);
+            color: #64748b;
         }
         
         .table-meta .meta-item {
@@ -867,7 +872,7 @@ ob_start();
         }
         .content-header h1{ 
             font-weight:900; 
-            color: #f1f5f9;
+            color: #1e293b;
             text-shadow: none;
         }
 
@@ -876,15 +881,14 @@ ob_start();
         .quiz-shell {
             display: none; /* flex when open */
             position: static; 
-            background: rgba(15, 23, 42, 0.95);
+            background: #ffffff;
             padding: 30px; 
             width: 100%;
             justify-content: center;
             align-items: flex-start;
             border-radius: 16px;
-            box-shadow: 0 0 50px rgba(139, 92, 246, 0.3);
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            backdrop-filter: blur(20px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
         }
         .quiz-shell .question-form { width: 100%; max-width: none; margin: 0; border-radius: 0; min-height: calc(100vh - 80px); }
         .quiz-close {
@@ -933,22 +937,21 @@ ob_start();
 
         /* Option interactions */
         .option {
-            border: 1px solid rgba(139, 92, 246, 0.3);
+            border: 1px solid #e2e8f0;
             border-radius: 10px;
             transition: background .15s ease, transform .08s ease, border-color .15s ease;
-            background: rgba(30, 41, 59, 0.6);
-            backdrop-filter: blur(8px);
+            background: #ffffff;
         }
         .option:hover { 
-            background: rgba(139, 92, 246, 0.15);
-            border-color: rgba(139, 92, 246, 0.5);
-            box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+            background: #f0f9ff;
+            border-color: #2563eb;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
         }
-        .option input[type="radio"] { accent-color: #8b5cf6; }
+        .option input[type="radio"] { accent-color: #2563eb; }
         .option.selected { 
-            border-color: rgba(139, 92, 246, 0.6); 
-            background: rgba(139, 92, 246, 0.2);
-            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2), 0 0 20px rgba(139, 92, 246, 0.3);
+            border-color: #2563eb; 
+            background: #f0f9ff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
         }
         .option:active { transform: scale(.98); }
 
@@ -993,7 +996,7 @@ ob_start();
         .badge.diff-easy{background:#dcfce7;color:#065f46}
         .badge.diff-medium{background:#fef9c3;color:#92400e}
         .badge.diff-hard{background:#fee2e2;color:#9f1239}
-        .locked-info{display:flex;align-items:center;gap:8px;margin-top:10px;color:#6b7280;font-size:12px;background:#f1f5f9;border:1px dashed #e2e8f0;padding:6px 10px;border-radius:9999px;width:max-content}
+        .locked-info{display:flex;align-items:center;gap:8px;margin-top:10px;color:#64748b;font-size:12px;background:#f8fafc;border:1px dashed #e2e8f0;padding:6px 10px;border-radius:9999px;width:max-content}
         .badge.starts { background:#e0e7ff; color:#1e40af; }
     </style>
 </head>
@@ -1002,12 +1005,12 @@ ob_start();
     <div class="page-shell" id="pageShell" style="width: 100%; margin: 0; padding: 16px;">
         <div class="content-header" style="width:100%;">
             <h1><i class="fas fa-question-circle"></i> Available Question Sets</h1>
-            <p style="margin-top:6px;color:rgba(241,245,249,.85)">Select a question set to start answering</p>
+            <p style="margin-top:6px;color:#64748b">Select a question set to start answering</p>
         </div>
         <div class="question-sets">
             <?php if (empty($questionSets)): ?>
                 <div class="question-sets-table">
-                    <div style="text-align: center; padding: 40px; color: #e1e5f2;">
+                    <div style="text-align: center; padding: 40px; color: #1e293b;">
                         <h3>No Question Sets Available</h3>
                     </div>
                 </div>
@@ -1075,7 +1078,7 @@ ob_start();
                                             Your Score: <?php echo (float)($set['student_score'] ?? 0); ?> / <?php echo (float)($set['max_points'] ?? 0); ?>
                                         </div>
                                     <?php else: ?>
-                                        <div style="color: rgba(241, 245, 249, 0.7); font-size: 14px;">
+                                        <div style="color: #64748b; font-size: 14px;">
                                             Ready to start
                                         </div>
                                     <?php endif; ?>
