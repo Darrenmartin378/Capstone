@@ -95,7 +95,7 @@ ob_start();
                     }
                 }
                 ?>
-                <button class="btn btn-primary view-material-btn" 
+                <button class="btn btn-primary view-material-btn"
                         data-title="<?php echo htmlspecialchars($m['title']); ?>"
                         data-content="<?php echo htmlspecialchars($m['content']); ?>"
                         data-theme="<?php echo htmlspecialchars($m['theme_settings']); ?>"
